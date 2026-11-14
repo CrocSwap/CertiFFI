@@ -1,0 +1,29 @@
+CertiFFI
+
+Copyright (c) 2026 Crocodile Labs Inc.
+
+First-party code and documentation are licensed under Apache License 2.0.
+The full text is in LICENSE. This notice does not relicense third-party
+material or imply rights that its upstream distribution has not granted.
+
+Third-party material and dependencies:
+
+* Arm architecture model material. Provider/, ReleaseRuntime14/, ReleaseSecp/ and ReleaseShared/ (and
+  potentially other packages) may contain code copied, transcribed or
+  specialized from the generated ArmFull model, a Sail translation of the
+  Arm A-profile architecture. That material is under the BSD 3-Clause Clear
+  license reproduced in LICENSE-MODEL-BSD-3-CLAUSE-CLEAR, including the named
+  Arm and other copyright holders. The Clear license does not grant patent
+  rights. MODEL-DERIVED-FILES.txt lists files with recognizable Sail code
+  generation fingerprints. It is informational and NOT exhaustive; the
+  package-level statement above governs.
+
+* IsaWitness (ArmFull model and lean-sail runtime) is a dependency, obtained
+  separately at a pinned revision. It is not redistributed here; see its own
+  LICENSE and NOTICE.
+* The Lean 4 toolchain and standard library are dependencies (Apache-2.0),
+  obtained separately.
+
+Arm is a registered trademark of Arm Limited (or its subsidiaries or
+affiliates) in the US and/or elsewhere. This independent project is not
+sponsored, endorsed or certified by Arm.

@@ -1,0 +1,10 @@
+# Original build paths of the path-bearing modules hashed in this release's signed manifest
+# (canonical_source_oleans). Each of these .olean files contains a stored linter message that
+# records the absolute path of its source file at build time. To reproduce the signed manifest
+# digest exactly, compile the module from a copy of the source file in this repository at the
+# path below, with -R set to the directory before the module path. All other hashed modules
+# contain no path and can be built from any location.
+#
+# module                                  original source path
+ReleaseProfile.MachineSource.WordRecipe   /home/doug/boss-scratch/armcert-publish/r14-renames/base-v3/src-ren/ReleaseProfile/MachineSource/WordRecipe.lean
+ReleaseProfile.GB10.SpecWitness           /home/doug/boss-scratch/armcert-publish/r14-renames/base-v3/src-ren/ReleaseProfile/GB10/SpecWitness.lean

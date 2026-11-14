@@ -1,0 +1,142 @@
+-- rich-v6 (B1 (a)): mem_tailP_Ldp + X[Rt] = ldpLo data (X19 at the epilogue LDP).
+import RtSaved.MemTailP
+import HeapV2StepCerts.MemTailPair
+import HeapV2StepCerts.BodyMemD
+import HeapV2StepCerts.MemHolds
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmCert.Translate ArmCert.Translate.Model
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 1024
+set_option Elab.async false
+namespace RtSaved3.MemTailP2
+open HeapV2StepCerts HeapV2StepCerts.MemTail
+open ArmCertWalk ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmCert.HookQuiet.V0 (HookQuiet)
+
+
+theorem mem_tailP2_Ldp (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (source fetched : NativeState) (enc0 : __InstrEnc) (imm7 : BitVec 7) (Rt Rt2 : BitVec 5) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31) (hRtt : Rt ≠ Rt2)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false)
+    (pins : StepPins fetched) (input : NativeEntryInput.Input source fetched) (guard : MetadataGuard fetched)
+    (budget : Nat) (quiet : HookQuiet (budget + 1) fetched)
+    (it : fetched.regs.ShouldAdvanceIT = false) (ss : fetched.regs.ShouldAdvanceSS = true)
+    (current : CurrentS1At spec config rows fetched)
+    (perAcc : ∀ acc, ArmCert.Translate.Model.DataShape false acc →
+      domain (MemClass.Ldp.query fetched imm7 acc) ∧
+      ∃ data : S1AccessData spec config rows (MemClass.Ldp.query fetched imm7 acc),
+        CurrentS1AccessAt spec config rows mapping (MemClass.Ldp.query fetched imm7 acc) data fetched)
+    (mode : HostEL0ModeAt fetched.regs) (debug : ExistingE11DebugAt fetched.regs)
+    (post : MemM1.MemReadD2.PostRegs2 fetched.regs)
+    (hEL3A64 : fetched.regs.FeatureImpl[7] = true) (hNoEL3A32 : fetched.regs.FeatureImpl[3] = false)
+    (hTME : fetched.regs.FeatureImpl[227] = false) (lse2 : fetched.regs.FeatureImpl[111] = true)
+    (dcache : currentDCache fetched.regs = true)
+    (hsp : fetched.regs.SP_EL0.toNat % 16 = 0) (hal : (ArmCertMem.LdpEval.ldpAddr fetched imm7).toNat % 16 = 0)
+    (pa : BitVec 56) (mapped : mapping (ArmCertMem.LdpEval.ldpAddr fetched imm7) = some pa.toNat)
+    (mmio : MemM1.MemReadIF.NotMMIO pa)
+    (data : BitVec 128) (bytes : ∀ i < 16, fetched.mem[pa.toNat + i]? = some ((data : BitVec (16 * 8)).extractLsb' (8 * i) 8))
+    (D : Nat → Prop)
+    (raw : RawImageAt spec.imageRows fetched.mem)
+    (noUpd : ∀ acc, ArmCert.Translate.Model.DataShape false acc →
+      NoUpdateRows {spec.params with haft := hostHAFT fetched.regs} acc spec.imageRows = true) :
+    ∃ (sp a fin : NativeState) (written : Nat → Prop) (delta : Array Event),
+      (PMUEvent PMU_EVENT_INST_SPEC : SailM Unit) fetched = .ok () sp ∧
+      nativeTail real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 fetched = .ok () fin ∧
+      NativeEntryContract.Frame NativeEntryBodyMem.Ldp.writes (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611) a ∧
+      HookQuiet budget fin ∧ StepPins fin ∧ SysEq2 a.regs fin.regs ∧
+      WritesOnly written (fun x => fetched.mem[x]?) (fun x => fin.mem[x]?) ∧
+      Separated (rowsFootprint spec.imageRows).byte written ∧
+      fin.events = fetched.events ++ delta ∧ ArmCertCTOrdered.OrderedEventV2.Covered delta ∧
+      fin.regs.bank_Option_InterruptID .__GIC_Pending = a.regs.bank_Option_InterruptID .__GIC_Pending ∧
+      fin.regs._PC = source.regs._PC + 4#64 ∧
+      ArmCertCT.CT2.NonProjRegsEq ArmBridge.CruxNonProj.bkHeap a.regs fin.regs ∧
+      (∀ a : Nat, (fetched.mem[a]?).isSome → (fin.mem[a]?).isSome) ∧
+      RegBind.Holds (RegBind.updLdp Rt Rt2) fetched fin ∧ (∀ x, written x → D x) ∧
+      fin.regs.gpr[(RegBind.rk Rt2).val] = ArmCertMem.LdpEval.ldpHi data ∧
+      fin.regs.gpr[(RegBind.rk Rt).val] = ArmCertMem.LdpEval.ldpLo data := by
+  obtain ⟨sp, hook, postS⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have e20 := postS.frame
+  have currentGuard := guard.after_E20 e20
+  have el : fetched.regs.PSTATE.EL = 0#2 := by rw [← input.ps]; exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp e20 el)
+  have metadataInput := currentInput.after_metadata (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 611
+  have metadataQuiet := actionState_quiet (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611 (budget + 1) postS.quiet
+  have metaPins := entryPins_at_metadata sp (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 611
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) e20)
+  have actMem := ActionTransport.mem (w := NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (K := 611) postS.mem
+  have feat := ActionTransport.feat (w := NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (K := 611) e20
+  have gprEq := ActionTransport.gpr (w := NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (K := 611) e20
+  have spEq := ActionTransport.sp0 (w := NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (K := 611) e20
+  have actEvents : (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611).events = fetched.events :=
+    (actionState_events (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611).trans postS.events
+  obtain ⟨t, ok, hr, hm, he, af, _, _, frame, tq⟩ :=
+    HeapV2StepCerts.BodyMemD.Ldp.runD spec config rows mapping (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611) imm7 Rt Rt2 hRt hRt2 hRtt
+      (ActionTransport.current e20 postS.mem current)
+      (fun acc sh => by
+        have qEq : MemClass.Ldp.query (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611) imm7 acc = MemClass.Ldp.query fetched imm7 acc := by
+          simp only [MemClass.Ldp.query, ArmCertMem.LdpEval.ldpAddr, spEq]
+        rw [qEq]
+        obtain ⟨member, data, access⟩ := perAcc acc sh
+        exact ⟨member, data, ActionTransport.access e20 access⟩)
+      (ActionTransport.mode e20 mode) (ActionTransport.debug e20 debug) (ActionTransport.post2 e20 post)
+      (feat ▸ hEL3A64) (feat ▸ hNoEL3A32) (feat ▸ hTME) (feat ▸ lse2) (ActionTransport.dcache e20 dcache)
+      (by rw [spEq]; exact hsp) (by simp only [ArmCertMem.LdpEval.ldpAddr, spEq]; exact hal)
+      pa (by simp only [ArmCertMem.LdpEval.ldpAddr, spEq]; exact mapped) mmio data (by rw [actMem]; exact bytes)
+      (by rw [actMem]; exact raw) (fun acc sh => by rw [ActionTransport.haft e20]; exact noUpd acc sh)
+      (budget + 1) metadataQuiet
+  have dispatch : DispatchAt real (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (decode_ldp_gen_aarch64_instrs_memory_pair_general_offset Rt 31#5 Rt2 imm7 1#1 2#2) 611 := by
+    intro pc u see
+    exact NativeEntryBodyDispatch.Ldp.dispatch_at real pc Rt Rt2 imm7 u (by simpa using see)
+  have boundary := metadata_boundary_at real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (decode_ldp_gen_aarch64_instrs_memory_pair_general_offset Rt 31#5 Rt2 imm7 1#1 2#2) enc0 sp currentGuard 611 (by decide) dispatch
+  have nativePrefix : nativeTail real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 fetched = nativeAfterAction real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 t := by
+    calc
+      nativeTail real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 fetched = afterSpecPmu real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 sp :=
+        spec_pmu_boundary real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 fetched sp hook
+      _ = nativeAtAction real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (decode_ldp_gen_aarch64_instrs_memory_pair_general_offset Rt 31#5 Rt2 imm7 1#1 2#2) enc0 (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611) := boundary
+      _ = nativeAfterAction real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 t :=
+        action_boundary real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) (decode_ldp_gen_aarch64_instrs_memory_pair_general_offset Rt 31#5 Rt2 imm7 1#1 2#2) enc0 (actionState (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) sp 611) t ok
+  have actionPins := NativeEntryTail.EntryPins.after_action frame metaPins
+  have next : t.regs.BTypeNext = 0#2 := by
+    rw [af.btn]
+    change sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 e20).btn.trans pins.btn
+  have enc : t.regs.__ThisInstrEnc = .__A64 := frame.enc
+  have eret : (Sail.BitVec.extractLsb (t.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [frame.b32]
+    change (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false
+    exact noEret
+  have actionIT : t.regs.ShouldAdvanceIT = false := frame.it.trans ((PMUFrame.of_E20 e20).it.trans it)
+  have actionSS : t.regs.ShouldAdvanceSS = true := frame.ss.trans ((PMUFrame.of_E20 e20).ss.trans ss)
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, _, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) enc0 t budget tq actionPins next enc eret actionIT actionSS
+  have noBranch : t.regs.__BranchTaken = false := frame.bt
+  have actionPC : t.regs._PC = source.regs._PC := frame.pc.trans metadataInput.pc
+  rw [actEvents] at he
+  obtain ⟨delta, hd, cov⟩ := single_delta he (memRead_covered _ _ _ _)
+  have payloadLo : fin.regs.gpr[(RegBind.rk Rt).val] = ArmCertMem.LdpEval.ldpLo data := by
+    have kv : ∀ n, n < 31 → (GPRSummary.key n).val = n := by decide
+    have hne : ¬ (GPRSummary.key Rt2.toNat = RegBind.rk Rt) := by
+      intro h
+      apply hRtt
+      apply BitVec.eq_of_toNat_eq
+      have h' := congrArg Fin.val h
+      simp only [RegBind.rk] at h'
+      rw [kv _ hRt2, kv _ hRt] at h'
+      exact h'.symm
+    rw [output.gpr, hr]
+    simp only [ArmCertMem.LdpEval.ldpPost, RegBind.setGpr_get]
+    rw [if_neg hne, if_pos (show GPRSummary.key Rt.toNat = RegBind.rk Rt from rfl)]
+  have payload : fin.regs.gpr[(RegBind.rk Rt2).val] = ArmCertMem.LdpEval.ldpHi data := by
+    rw [output.gpr, hr]
+    simp only [ArmCertMem.LdpEval.ldpPost, RegBind.setGpr_get]
+    exact if_pos rfl
+  refine ⟨sp, t, fin, fun _ => False, delta, hook, nativePrefix.trans tail, frame, finalQuiet, finalPins, sys,
+    fun x _ => by show fin.mem[x]? = fetched.mem[x]?; rw [output.mem, hm, actMem], EntryBtiNext.no_writes_separated _, by rw [events, hd], cov, gic, ?_, nonProj, ?_, ?_⟩
+  simpa only [noBranch, Bool.false_eq_true, ite_false, actionPC] using pc
+  exact fun a h => by rw [output.mem, hm, actMem]; exact h
+  exact ⟨RegBind.Holds.of_prefix (ActionTransport.gpr e20) (ActionTransport.sp0 e20) (RegBind.holds_ldp _ fin Rt Rt2 data (by rw [output.gpr, hr]) (by rw [output.sp, hr]; rfl)), fun _ h => h.elim, payload, payloadLo⟩
+
+
+end RtSaved3.MemTailP2

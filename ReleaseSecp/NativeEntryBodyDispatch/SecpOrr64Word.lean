@@ -1,0 +1,12 @@
+import Bridge.BvField
+open BitVec
+namespace NativeEntryBodyDispatch.SecpOrr64
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 1024
+set_option Elab.async false
+/- Encoding candidate, checked against the ACTUAL outer dispatch theorem. -/
+def word (f0 : BitVec 1) (f1 : BitVec 2) (f2 : BitVec 5) (f3 : BitVec 2) (f4 : BitVec 1) (Rm : BitVec 5) (f6 : BitVec 6) (Rn : BitVec 5) (Rd : BitVec 5) : BitVec 32 := f0 ++ f1 ++ f2 ++ f3 ++ f4 ++ Rm ++ f6 ++ Rn ++ Rd
+/- The selected class word: constant fields fixed by the class. -/
+def selected (Rd : BitVec 5) (Rn : BitVec 5) (Rm : BitVec 5) : BitVec 32 := word 1#1 1#2 10#5 0#2 0#1 Rm 0#6 Rn Rd
+end NativeEntryBodyDispatch.SecpOrr64

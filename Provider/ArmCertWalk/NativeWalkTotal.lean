@@ -1,0 +1,149 @@
+import ArmCertWalk.FinitePathTail
+import ArmCertWalk.WalkPrefixQueries
+import ArmCertWalk.RootEntryNoFault
+
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open ArmCert.Translate ArmCert.Translate.Model
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 512
+
+namespace ArmCertWalk
+
+/-- Source result and current endpoint on the SAME native execution. All table
+stores are ordered; the prior starts at the actual initializer's empty table
+permissions. This is a walk result, before Translate's leaf AF/dirty updates. -/
+def CleanWalkResult {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (query : AccessQuery)
+    (leafLevel leafLogical : Nat) (leafPhysical : FullAddress) (leafView : S1DescriptorPIE.View 64)
+    (path : S1LogicalReference.Path (logicalObserve spec.logicalRows)
+      (effectiveBits spec.physicalConfig).toNat query.va spec.layout.start
+      (S1LogicalReference.rootBits spec.layout.start spec.layout.inputBits) spec.layout.root
+      (.leaf leafLevel leafLogical leafPhysical leafView))
+    (initial : State) (result : FaultRecord × AddressDescriptor × TTWState × BitVec 64) (other : State) : Prop :=
+  ∃ (steps : Nat) (out : WalkVars) (words : List (BitVec 64))
+      (prior : S1LogicalReference.TablePermissions) (operations : List TableUpdate),
+    0 < steps ∧ steps ≤ 4 - spec.layout.start ∧
+    result = (walkFault out, walkAddress out, walkCurrent out, walkDescriptor out) ∧
+    PathPermissionAnnotation (logicalObserve spec.logicalRows) (effectiveBits spec.physicalConfig).toNat
+      query.va spec.controls path ⟨0#2, false, false⟩ words prior ∧
+    WalkLeafEndpoint spec.params config spec.controls (outputOverlayEnabled initial.regs)
+      leafLevel leafPhysical leafView prior out other ∧ other.regs = initial.regs ∧
+    StoreHistory spec.params (rowsFootprint spec.imageRows) initial.mem operations other.mem
+
+/-- The complete actual M0257 walker, including every prefix choice/query and
+root-range check, finite source loop, StageOA and source fault guards. Current
+layout/profile/image data are inputs; no source-success answer is supplied. -/
+theorem native_walk_total {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (query : AccessQuery) (member : domain query)
+    (leafLevel leafLogical : Nat) (leafPhysical : FullAddress) (leafView : S1DescriptorPIE.View 64)
+    (path : S1LogicalReference.Path (logicalObserve spec.logicalRows)
+      (effectiveBits spec.physicalConfig).toNat query.va spec.layout.start
+      (S1LogicalReference.rootBits spec.layout.start spec.layout.inputBits) spec.layout.root
+      (.leaf leafLevel leafLogical leafPhysical leafView))
+    (leafUsed : rowsObserve spec.imageRows leafPhysical.address.toNat true leafView)
+    (fault : FaultRecord) (initial : State)
+    (format : WalkFormat spec.params spec.physicalConfig spec.controls)
+    (callees : WalkCalleesAt spec.params spec.physicalConfig spec.controls config initial)
+    (image : TopologyImageAt spec initial)
+    (attributes : AttributeImage (rowsObserve spec.imageRows) config initial.mem)
+    (layout : CurrentLayoutAt spec.layout spec.params query.va initial.regs)
+    (disch : spec.params.disch = 0#1)
+    (ss : query.request.raw.ss = .SS_NonSecure) (noFault : fault.statuscode = .Fault_None)
+    (cache : initial.regs.bank_Bool .__tlb_enabled = false)
+    (epd : currentWalkEPD initial.regs query.va = 0#1)
+    (admissible : LeafSuffixAdmissible spec.physicalConfig initial.regs query.va leafLevel leafView) :
+    ∃ result other,
+      AArch64_S1Walk fault spec.params query.va .Regime_EL20 query.request.raw 64 initial = .ok result other ∧
+      CleanWalkResult spec config query leafLevel leafLogical leafPhysical leafView path initial result other := by
+  rw [S1WalkSource.named.equation, S1WalkTailSource.equation]
+  unfold S1WalkTailSource.withTail
+  apply S1EntryWP.run_wp
+  apply S1EntryWP.bind_normal_me _ _ initial _ _ (S1EntryDraws.bool_draw 1591)
+  intro a64 t1 hf1
+  apply S1EntryWP.bind_normal_me _ _ t1 _ _ (S1EntryDraws.bool_draw 1592)
+  intro aligned t2 hf2
+  apply S1EntryWP.bind_normal_me _ _ t2 _ _ (S1EntryDraws.context_draw 1593)
+  intro context t3 hf3
+  apply S1EntryWP.bind_normal_me _ _ t3 _ _ (S1EntryDraws.record_draw 1594)
+  intro entry t4 hf4
+  have hf14 := S1EntryWP.frame_trans (S1EntryWP.frame_trans (S1EntryWP.frame_trans hf1 hf2) hf3) hf4
+  have readCache : (readReg ArmFull.Register.__tlb_enabled : SailM Bool) t4 = .ok false t4 := by
+    change EStateM.Result.ok (t4.regs.bank_Bool .__tlb_enabled) t4 = .ok false t4
+    rw [hf14.1, cache]
+  apply S1EntryWP.bind_lift_eq _ _ t4 t4 false _ _ readCache
+  have unpriv : HasUnprivileged .Regime_EL20 = true := rfl
+  simp only [Bool.false_eq_true, ↓reduceIte, pure_bind, unpriv]
+  apply S1EntryWP.bind_wp
+  have epdCall : AArch64_S1EPD .Regime_EL20 query.va t4 = .ok 0#1 t4 := by
+    rw [epd_el20_eq, hf14.1, epd]
+  apply S1EntryWP.bind_lift_eq _ _ t4 t4 0#1 _ _ epdCall
+  apply S1EntryWP.pure_wp
+  have epdFalse : ((0#1 : BitVec 1) == 1#1) = false := rfl
+  simp only [epdFalse, Bool.false_eq_true, ↓reduceIte, pure_bind]
+  rw [ss]
+  obtain ⟨current, t5, initCall, initMeaning, initLevel, initRoot, initRegs, initMem, initEvents⟩ :=
+    initial_walk_layout_total spec.params query.va t4 spec.layout format.d128 format.ds format.tg
+      (layout.of_regs hf14.1)
+  apply S1EntryWP.bind_lift_eq _ _ t4 t5 current _ _ initCall
+  have hf15 := S1EntryWP.frame_trans hf14 ⟨initRegs, initMem, initEvents⟩
+  apply S1EntryWP.bind_normal_me _ _ t5 _ _ (S1EntryDraws.bits_draw 1595)
+  intro descriptor t6 hf6
+  have hf16 := S1EntryWP.frame_trans hf15 hf6
+  apply S1EntryWP.bind_normal_me _ _ t6 _ _ (S1EntryDraws.address_draw 1596)
+  intro seedAddress t7 hf7
+  have hf17 := S1EntryWP.frame_trans hf16 hf7
+  have mecidCall : AArch64_TTWalkMECID spec.params.emec .Regime_EL20 .SS_NonSecure t7 =
+      .ok DEFAULT_MECID t7 := by rw [S1EntryCallees.mecid_eq]; rfl
+  apply S1EntryWP.bind_lift_eq _ _ t7 t7 DEFAULT_MECID _ _ mecidCall
+  apply S1EntryWP.bind_lift_normal _ _ t7 _ _ (S1EntryCallees.dcache_normal .Regime_EL20 (.inr rfl))
+  intro enabled t8 hf8
+  have hf18 := S1EntryWP.frame_trans hf17 hf8
+  apply S1EntryWP.bind_normal_me _ _ t8 _ _
+  · apply S1NormalME.normal_ite
+    · intro disabled
+      apply S1NormalME.normal_bind
+      · exact S1NormalME.lift_normal _ _ S1EntryCalleesExtra.normalnc_normal
+      · intro attrs
+        exact S1NormalME.normal_pure _ _
+    · intro enabled
+      exact S1NormalME.normal_pure _ _
+  · intro walkaddr t9 hf9
+    have hf19 := S1EntryWP.frame_trans hf18 hf9
+    have otherRegime : ((.Regime_EL20 : Regime) == .Regime_EL10) = false := rfl
+    simp only [otherRegime, Bool.false_eq_true, ↓reduceIte, pure_bind]
+    apply S1EntryWP.bind_normal_me _ _ t9 _ _ (S1EntryDraws.type_draw 1597)
+    intro typ t10 hf10
+    have hf110 := S1EntryWP.frame_trans hf19 hf10
+    obtain ⟨slot, afterEntry, afterRange, entryCall, rangeCall, space, slotValue, rangeRegs, rangeMem, rangeEvents⟩ :=
+      root_entry_range_total spec.layout spec.params spec.physicalConfig query.va t10
+        (layout.of_regs hf110.1) (callees.physical.of_regs hf110.1) (path_start_bound path)
+        current.baseaddress initRoot format.d128 format.tg format.ips (spec.rootBound query member)
+    have actualEntry : AArch64_S1SLTTEntryAddress current.level spec.params query.va current.baseaddress t10 =
+        .ok slot afterEntry := by simpa only [initLevel] using entryCall
+    apply S1EntryWP.bind_lift_eq _ _ t10 afterEntry slot _ _ actualEntry
+    apply S1EntryWP.bind_lift_eq _ _ afterEntry afterRange false _ _ rangeCall
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    have hf1Range := S1EntryWP.frame_trans hf110 ⟨rangeRegs, rangeMem, rangeEvents⟩
+    have rangeImage : TopologyImageAt spec afterRange := by
+      simpa only [TopologyImageAt, hf1Range.2.1] using image
+    have rangeAttrs : AttributeImage (rowsObserve spec.imageRows) config afterRange.mem := by
+      rw [hf1Range.2.1]; exact attributes
+    obtain ⟨steps, out, other, words, prior, operations, positive, stepBound, tailCall,
+      annotation, endpoint, registers, history⟩ :=
+      finite_path_tail_total spec config query.va query.request.raw current.level context entry path
+        leafLevel leafLogical leafPhysical leafView rfl leafUsed current aligned slot descriptor typ fault
+        a64 false 0#2 {walkaddr with memattrs := {walkaddr.memattrs with
+          shareability := EffectiveShareability walkaddr.memattrs}, tlbcontext := context} afterRange
+        format (callees.of_regs hf1Range.1) rangeImage rangeAttrs ss noFault initMeaning.2.1
+        initLevel (initMeaning.2.2.2.2.2.1.trans disch) slotValue (space.trans initMeaning.2.1)
+        (by rw [hf1Range.1]; exact cache) (by rw [hf1Range.1]; exact admissible)
+    apply S1EntryWP.of_run _ afterRange other _ _ tailCall
+    refine ⟨steps, out, words, prior, operations, positive, stepBound, rfl, ?_, ?_,
+      registers.trans hf1Range.1, ?_⟩
+    · simpa only [initMeaning.2.2.2.2.2.2.2] using annotation
+    · simpa only [hf1Range.1] using endpoint
+    · simpa only [hf1Range.2.1] using history
+
+#print axioms native_walk_total
+end ArmCertWalk

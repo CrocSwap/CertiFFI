@@ -1,0 +1,374 @@
+-- Memory (ff72a,): the memory tails with their data events. memE_<K> / memEP_<K> are
+-- RtSaved.MemFacts.memVD_<K> / memVP_<K> over MemTailE.mem_tailD_<K> / MemTailPE.mem_tailP_<K>,
+-- exporting additionally the step's own event delta, whose records (under nodup) are
+-- DataRecs.dataRecs spec (dataVA p e) e.write e.size: translation start, the no-update walk of dataVA, end, the access.
+import HeapV2StepCerts.AccShape
+import HeapV2StepCerts.ActionTransport
+import HeapV2StepCerts.BodyHolds
+import HeapV2StepCerts.BodyMemD
+import HeapV2StepCerts.C3Byte
+import HeapV2StepCerts.C3Core
+import HeapV2StepCerts.C3Pair
+import HeapV2StepCerts.Carry
+import HeapV2StepCerts.CodeScope
+import HeapV2StepCerts.DataBytes
+import HeapV2StepCerts.FetchFrames
+import HeapV2StepCerts.MemConfigFrame
+import HeapV2StepCerts.MemHolds
+import HeapV2StepCerts.MemNextV3
+import HeapV2StepCerts.MemRunD
+import HeapV2StepCerts.MemSteps
+import HeapV2StepCerts.MemStepsV3
+import HeapV2StepCerts.MemStepsV3_00
+import HeapV2StepCerts.MemStepsV3_01
+import HeapV2StepCerts.MemStepsV3_02
+import HeapV2StepCerts.MemStepsV3_03
+import HeapV2StepCerts.MemStepsV3_04
+import HeapV2StepCerts.MemStepsV3_05
+import HeapV2StepCerts.MemTailD
+import HeapV2StepCerts.MemTailLdrb
+import HeapV2StepCerts.MemTailPair
+import HeapV2StepCerts.MemTailStrb
+import HeapV2StepCerts.RawFetch
+import HeapV2StepCerts.RegBind
+import HeapV2StepCerts.RegBindCore
+import HeapV2StepCerts.RegBindData
+import HeapV2StepCerts.RegVal
+import HeapV2StepCerts.Straight
+import HeapV2StepCerts.StraightV2
+import HeapV2StepCerts.ValueTailDef
+import HeapV2StepCerts.MemStepV3
+import HeapV2StepCerts.MemTailDE
+import HeapV2StepCerts.MemTailPE
+import RtSaved.MemFacts
+import HeapV2StepCerts.ValueTailDefE
+import HeapV2StepCerts.Flags
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open ArmCert.Translate ArmCert.Translate.Model
+open ArmCertWalk
+open ArmBridge.Boundary ArmBridge.Draft ArmBridge.CruxCore
+open ArmBridge.CruxGenGuarded.EntryClassNext ArmBridge.CruxGenGuarded.ChainInv
+open ArmBridge.CruxGenGuarded.HeapV2Compose ArmBridge.CruxGenGuarded.ChainInvV2
+open ArmBridge.CruxGenGuarded.EntryActualFetch ArmBridge.CruxGenGuarded.EntryFetchedFacts
+open ArmBridge.CruxGenGuarded ArmBridge.CruxGenGuarded.ClosedChain
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 1024
+set_option Elab.async false
+namespace HeapV2StepCerts.MemFactsE
+open HeapV2StepCerts HeapV2StepCerts.MemNext HeapV2StepCerts.RegBind HeapV2StepCerts.C3
+
+/-- The step's own events: `fin.events = f.events ++ delta`, with records `data` under nodup. -/
+def EvD {domain : QueryDomain} (spec : TopologyImageSpec domain) (data : List (Option ArmCertCTOrdered.OrderedEventV2.Record))
+    (f fin : NativeState) : Prop :=
+  ∃ delta : Array Event, fin.events = f.events ++ delta ∧
+    ((spec.logicalRows.map (·.logical)).Nodup → delta.toList.map ArmCertCTOrdered.OrderedEventV2.record = data)
+
+/-- RtSaved.MemFacts.MemTailVPAt plus the step events (EvD), the SIMD frame and the NZCV frame. -/
+def MemTailEAt (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (Ctx : NativeState → Prop) (D : Nat → Prop)
+    (w : BitVec 32) (writes : NativeEntry.Effects.Writes) (K : Int) (source : NativeState) (next : BitVec 64)
+    (us : List (RegBind.Reg × RegBind.Upd)) (Pay : NativeState → NativeState → Prop)
+    (data : List (Option ArmCertCTOrdered.OrderedEventV2.Record)) : Prop :=
+  ∀ (fetched : NativeState) (enc0 : __InstrEnc) (budget : Nat),
+    StepPins fetched → NativeEntryInput.Input source fetched → MetadataGuard fetched →
+    HookQuiet (budget + 1) fetched → fetched.regs.ShouldAdvanceIT = false →
+    fetched.regs.ShouldAdvanceSS = true →
+    CurrentS1At spec config rows fetched → Ctx fetched →
+    ∃ (sp a fin : NativeState) (written : Nat → Prop),
+      (PMUEvent PMU_EVENT_INST_SPEC : SailM Unit) fetched = .ok () sp ∧
+      nativeTail real source w enc0 fetched = .ok () fin ∧
+      NativeEntryContract.Frame writes (actionState w sp K) a ∧
+      HookQuiet budget fin ∧ StepPins fin ∧ SysEq2 a.regs fin.regs ∧
+      WritesOnly written (fun x => fetched.mem[x]?) (fun x => fin.mem[x]?) ∧
+      Separated (rowsFootprint spec.imageRows).byte written ∧ (∀ x, written x → D x) ∧
+      fin.regs.bank_Option_InterruptID .__GIC_Pending = a.regs.bank_Option_InterruptID .__GIC_Pending ∧
+      fin.regs._PC = next ∧
+      ArmCertCT.CT2.NonProjRegsEq ArmBridge.CruxNonProj.bkHeap a.regs fin.regs ∧
+      (∀ x : Nat, (fetched.mem[x]?).isSome → (fin.mem[x]?).isSome) ∧
+      RegBind.Holds us fetched fin ∧ Pay fetched fin ∧ EvD spec data fetched fin ∧
+      fin.regs._Z = fetched.regs._Z ∧ Flags.nzcv fin.regs = Flags.nzcv fetched.regs
+
+
+theorem memE_Ldrb (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows))
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm9 : BitVec 9) (Rn Rt : BitVec 5) (hRn : Rn.toNat < 31) (hRt : Rt.toNat < 31) (hRnt : Rn ≠ Rt)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldrb.selected Rt Rn imm9) 31 12 == 879088#20) = false)
+    {r : Reg} (hat : accessAt e.1 = some (r, 0)) (hr : r = .x (rk Rn))
+    (hsize : e.2.2.2.1 = 1) (hw : e.2.2.2.2 = false) (hupd : upds k = updLdrb Rn Rt imm9) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (fun _ => False)
+      (NativeEntryBodyDispatch.Ldrb.selected Rt Rn imm9) NativeEntryBodyMem.Ldrb.writes 631 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk hr
+  rw [hupd]
+  have hvaE : MemClass.Ldrb.base fetched Rn = HeapV2E17.dataVA p e := base_va member ctx.regBind hat
+  obtain ⟨perAcc, pa, mapped, mmio, outside, v, byte⟩ :=
+    prem_Ldrb fetched ctx.closed static ctx.present member ctx.regBind Rn hat hsize hw
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inD⟩ :=
+    MemTailE.mem_tailD_Ldrb real spec config rows mapping source fetched enc0 imm9 Rn Rt hRn hRt hRnt noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.dcache pa mapped mmio v byte outside (fun _ => False) ctx.raw
+      (fun acc sh => ctx.noUpd false acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inD, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memE_Strb (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows))
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm9 : BitVec 9) (Rn Rt : BitVec 5) (hRn : Rn.toNat < 31) (hRt : Rt.toNat < 31) (hRnt : Rn ≠ Rt)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Strb.selected Rt Rn imm9) 31 12 == 879088#20) = false)
+    {r : Reg} (hat : accessAt e.1 = some (r, 0)) (hr : r = .x (rk Rn))
+    (hsize : e.2.2.2.1 = 1) (hw : e.2.2.2.2 = true) (hupd : upds k = updStrb Rn imm9) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (RtSaved.accPA p mapping e)
+      (NativeEntryBodyDispatch.Strb.selected Rt Rn imm9) NativeEntryBodyMem.Strb.writes 649 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk hr
+  rw [hupd]
+  have hvaE : MemClass.Strb.base fetched Rn = HeapV2E17.dataVA p e := base_va member ctx.regBind hat
+  have hva := base_va member ctx.regBind hat
+  obtain ⟨perAcc, pa, mapped, mmio, outside⟩ :=
+    prem_Strb fetched ctx.closed static ctx.post2 member ctx.regBind Rn hat hsize hw
+  have inD : RtSaved.accPA p mapping e pa.toNat :=
+    Or.inl ⟨pa.toNat, hva ▸ mapped, Nat.le_refl _, by rw [hsize]; omega⟩
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW⟩ :=
+    MemTailE.mem_tailD_Strb real spec config rows mapping source fetched enc0 imm9 Rn Rt hRn hRt hRnt noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 pa mapped mmio outside (RtSaved.accPA p mapping e) inD ctx.raw
+      (fun acc sh => ctx.noUpd true acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memE_Stp (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rt Rt2 : BitVec 5) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Stp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} (hat : accessAt e.1 = some (.sp, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = true) (hupd : upds k = []) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (RtSaved.accPA p mapping e)
+      (NativeEntryBodyDispatch.Stp.selected Rt Rt2 imm7) NativeEntryBodyMem.Stp.writes 617 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk
+  rw [hupd]
+  have hvaE : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  have hva : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  obtain ⟨perAcc, hsp, hal, pa, mapped, mmio, outside⟩ :=
+    prem_Stp fetched ctx.closed static ctx.post2 pinAligned member ctx.regBind imm7 hat himm hoff.1 hoff.2 hsize hw
+  have inD : ∀ i < 16, RtSaved.accPA p mapping e (pa.toNat + i) := fun i hi =>
+    Or.inl ⟨pa.toNat, hva ▸ mapped, by omega, by rw [hsize]; omega⟩
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW⟩ :=
+    MemTailE.mem_tailD_Stp real spec config rows mapping source fetched enc0 imm7 Rt Rt2 hRt hRt2 noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache hsp hal pa mapped mmio outside (RtSaved.accPA p mapping e) inD ctx.raw
+      (fun acc sh => ctx.noUpd true acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memE_Ldp (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rt Rt2 : BitVec 5) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31) (hRtt : Rt ≠ Rt2)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} (hat : accessAt e.1 = some (.sp, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = false) (hupd : upds k = updLdp Rt Rt2) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (fun _ => False)
+      (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) NativeEntryBodyMem.Ldp.writes 611 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk
+  rw [hupd]
+  have hvaE : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  obtain ⟨perAcc, hsp, hal, pa, mapped, mmio, data, bytes⟩ :=
+    prem_Ldp fetched ctx.closed static ctx.present pinAligned member ctx.regBind imm7 hat himm hoff.1 hoff.2 hsize hw
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW⟩ :=
+    MemTailE.mem_tailD_Ldp real spec config rows mapping source fetched enc0 imm7 Rt Rt2 hRt hRt2 hRtt noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache hsp hal pa mapped mmio data bytes (fun _ => False) ctx.raw
+      (fun acc sh => ctx.noUpd false acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memE_Stp8 (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rn Rt Rt2 : BitVec 5) (hRn : Rn.toNat < 31) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Stp8.selected Rt Rn Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} {r : Reg} (hat : accessAt e.1 = some (r, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hr : r = .x (rk Rn))
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = true) (hupd : upds k = []) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (RtSaved.accPA p mapping e)
+      (NativeEntryBodyDispatch.Stp8.selected Rt Rn Rt2 imm7) NativeEntryBodyMem.Stp8.writes 617 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk hr
+  rw [hupd]
+  have hvaE : MemClass.Stp8.pairAddr fetched Rn imm7 = HeapV2E17.dataVA p e := pair8_va member ctx.regBind Rn imm7 hat himm
+  have hva : MemClass.Stp8.pairAddr fetched Rn imm7 = HeapV2E17.dataVA p e :=
+    pair8_va member ctx.regBind Rn imm7 hat himm
+  obtain ⟨perAcc, preW, h8, pa1, pa2, mapped1, mapped2, contiguous, mmio1, mmio2, outside1, outside2⟩ :=
+    prem_Stp8 fetched ctx.closed static ctx.post2 pinAligned member ctx.regBind Rn imm7 hat himm hoff.2 hsize hw
+  have inD1 : ∀ i < 8, RtSaved.accPA p mapping e (pa1.toNat + i) := fun i hi =>
+    Or.inl ⟨pa1.toNat, hva ▸ mapped1, by omega, by rw [hsize]; omega⟩
+  have inD2 : ∀ i < 8, RtSaved.accPA p mapping e (pa2.toNat + i) := fun i hi =>
+    Or.inr ⟨hsize, pa2.toNat, hva ▸ mapped2, by omega, by omega⟩
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW⟩ :=
+    MemTailE.mem_tailD_Stp8 real spec config rows mapping source fetched enc0 imm7 Rn Rt Rt2 hRn hRt hRt2 noEret
+      pins input guard budget quiet it ss current perAcc preW ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache h8 pa1 pa2 mapped1 mapped2 contiguous mmio1 mmio2 outside1 outside2
+      (RtSaved.accPA p mapping e) inD1 inD2 ctx.raw (fun acc sh => ctx.noUpd true acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs (by rw [hvaE]; exact dataVA_aligned pinAligned hoff.2) nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memE_Ldp8 (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rn Rt Rt2 : BitVec 5) (hRn : Rn.toNat < 31) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31)
+    (hRtt : Rt ≠ Rt2)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldp8.selected Rt Rn Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} {r : Reg} (hat : accessAt e.1 = some (r, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hr : r = .x (rk Rn))
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = false) (hupd : upds k = updLdp Rt Rt2) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (fun _ => False)
+      (NativeEntryBodyDispatch.Ldp8.selected Rt Rn Rt2 imm7) NativeEntryBodyMem.Ldp8.writes 611 source
+      (source.regs._PC + 4#64) (upds k) (fun _ _ => True)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk hr
+  rw [hupd]
+  have hvaE : MemClass.Ldp8.pairAddr fetched Rn imm7 = HeapV2E17.dataVA p e := pair8_va member ctx.regBind Rn imm7 hat himm
+  obtain ⟨perAcc, h8, pa1, pa2, mapped1, mapped2, contiguous, mmio1, mmio2, data, bytes1, bytes2⟩ :=
+    prem_Ldp8 fetched ctx.closed static ctx.present pinAligned member ctx.regBind Rn imm7 hat himm hoff.2 hsize hw
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW⟩ :=
+    MemTailE.mem_tailD_Ldp8 real spec config rows mapping source fetched enc0 imm7 Rn Rt Rt2 hRn hRt hRt2 hRtt noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache h8 pa1 pa2 mapped1 mapped2 contiguous mmio1 mmio2 data bytes1 bytes2
+      (fun _ => False) ctx.raw (fun acc sh => ctx.noUpd false acc sh)
+  exact ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, trivial, ⟨delta, ev, fun nd => by rw [(recs (by rw [hvaE]; exact dataVA_aligned pinAligned hoff.2) nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+
+theorem memEP_Stp (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rt Rt2 : BitVec 5) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Stp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} (hat : accessAt e.1 = some (.sp, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = true) (hupd : upds k = []) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (RtSaved.accPA p mapping e)
+      (NativeEntryBodyDispatch.Stp.selected Rt Rt2 imm7) NativeEntryBodyMem.Stp.writes 617 source
+      (source.regs._PC + 4#64) (upds k) (RtSaved.MemFacts.StpPay p mapping e Rt Rt2)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk
+  rw [hupd]
+  have hvaE : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  have hva : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  obtain ⟨perAcc, hsp, hal, pa, mapped, mmio, outside⟩ :=
+    prem_Stp fetched ctx.closed static ctx.post2 pinAligned member ctx.regBind imm7 hat himm hoff.1 hoff.2 hsize hw
+  have inD : ∀ i < 16, RtSaved.accPA p mapping e (pa.toNat + i) := fun i hi =>
+    Or.inl ⟨pa.toNat, hva ▸ mapped, by omega, by rw [hsize]; omega⟩
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW, pay⟩ :=
+    MemTailPE.mem_tailP_Stp real spec config rows mapping source fetched enc0 imm7 Rt Rt2 hRt hRt2 noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache hsp hal pa mapped mmio outside (RtSaved.accPA p mapping e) inD ctx.raw
+      (fun acc sh => ctx.noUpd true acc sh)
+  refine ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, ?_, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+  intro n hn i hi
+  rw [← hva, mapped] at hn
+  obtain rfl : pa.toNat = n := Option.some.inj hn
+  rw [pay i hi]
+  exact congrArg some (RtSaved.slotByte_stp _ _ i)
+
+theorem memEP_Ldp (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    {p : HeapV2E17.Pins} {base : Nat} {table : Nat → Prop}
+    (static : DataStatic p mapping (rowsFootprint spec.imageRows)) (pinAligned : ∀ i, HeapV2E17.pin p i % 16 = 0)
+    {k : Nat} {e : Nat × Nat × Int × Nat × Bool} (member : e ∈ HeapV2Plan.symbolicAccesses) (hk : e.1 = k)
+    (imm7 : BitVec 7) (Rt Rt2 : BitVec 5) (hRt : Rt.toNat < 31) (hRt2 : Rt2.toNat < 31) (hRtt : Rt ≠ Rt2)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) 31 12 == 879088#20) = false)
+    {off : Int} (hat : accessAt e.1 = some (.sp, off))
+    (himm : BitVec.signExtend 64 imm7 <<< 3 = BitVec.ofInt 64 off) (hoff : off % 16 = 0 ∧ e.2.2.1 % 16 = 0)
+    (hsize : e.2.2.2.1 = 16) (hw : e.2.2.2.2 = false) (hupd : upds k = updLdp Rt Rt2) (source : NativeState) :
+    MemTailEAt real spec config rows (Ctx spec config rows mapping p base table k) (fun _ => False)
+      (NativeEntryBodyDispatch.Ldp.selected Rt Rt2 imm7) NativeEntryBodyMem.Ldp.writes 611 source
+      (source.regs._PC + 4#64) (upds k) (RtSaved.MemFacts.LdpPay p mapping e Rt2)
+      (DataRecs.dataRecs spec (HeapV2E17.dataVA p e) e.2.2.2.2 e.2.2.2.1) := by
+  intro fetched enc0 budget pins input guard quiet it ss current ctx
+  subst hk
+  rw [hupd]
+  have hvaE : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  have hva : ArmCertMem.LdpEval.ldpAddr fetched imm7 = HeapV2E17.dataVA p e := by
+    have h := va_of_bind member ctx.regBind hat
+    simp only [regVal] at h
+    simp only [ArmCertMem.LdpEval.ldpAddr, himm, h]
+  obtain ⟨perAcc, hsp, hal, pa, mapped, mmio, data, bytes⟩ :=
+    prem_Ldp fetched ctx.closed static ctx.present pinAligned member ctx.regBind imm7 hat himm hoff.1 hoff.2 hsize hw
+  obtain ⟨sp, a, fin, written, delta, hook, run, frame, q, fp, sys, wo, sep, ev, _, recs, flg, gic, pc, np, keep, holds, inW, pay⟩ :=
+    MemTailPE.mem_tailP_Ldp real spec config rows mapping source fetched enc0 imm7 Rt Rt2 hRt hRt2 hRtt noEret
+      pins input guard budget quiet it ss current perAcc ctx.mode ctx.debug ctx.post2 ctx.feat.1 ctx.feat.2.1
+      ctx.feat.2.2.1 ctx.feat.2.2.2 ctx.dcache hsp hal pa mapped mmio data bytes (fun _ => False) ctx.raw
+      (fun acc sh => ctx.noUpd false acc sh)
+  refine ⟨sp, a, fin, written, hook, run, frame, q, fp, sys, wo, sep, inW, gic, pc, np, keep, holds, ?_, ⟨delta, ev, fun nd => by rw [(recs nd), hvaE, hw, hsize]⟩, ValueTailE.z_tail quiet hook frame rfl np, flg⟩
+  intro n hn d hd
+  rw [← hva, mapped] at hn
+  obtain rfl : pa.toNat = n := Option.some.inj hn
+  have same : data = d := RtSaved.bytes_ext (fun i hi => Option.some.inj ((bytes i hi).symm.trans (hd i hi)))
+  rw [pay, same]
+
+#print axioms memE_Ldrb
+#print axioms memE_Strb
+#print axioms memE_Stp
+#print axioms memE_Ldp
+#print axioms memE_Stp8
+#print axioms memE_Ldp8
+#print axioms memEP_Stp
+#print axioms memEP_Ldp
+end HeapV2StepCerts.MemFactsE

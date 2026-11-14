@@ -1,0 +1,91 @@
+name = "ReleaseShared"
+version = "0.1.0"
+defaultTargets = ["ReleaseSharedLib"]
+moreLeanArgs = ["-j1", "-M12288"]
+
+[leanOptions]
+Elab.async = false
+
+[[require]]
+name = "Provider"
+path = "../Provider"
+
+[[lean_lib]]
+name = "ReleaseSharedLib"
+roots = [
+  "ArmCertMemPipe.EntryMemG",
+  "ArmCertMemPipe.RouteG",
+  "ArmCertPipe.ChainInvG",
+  "ArmCertPipe.FDeploy",
+  "ArmCertPipe.FPrefix",
+  "ArmCertPipe.FetchG",
+  "ArmCertPipe.GPrefix",
+  "ArmCertPipe.Guard",
+  "ArmCertPipe.Prefix",
+  "ArmCertPipe.ValuePlan",
+  "ArmCertTranslateModel.StaticPieScoped",
+  "ArmCertValue.EntrySnapshot",
+  "ArmCertValue.Expr",
+  "ArmCertValue.ExprBatch",
+  "ArmCertValue.ExprStep",
+  "ArmCertValue.F",
+  "ArmCertValue.FMemory",
+  "ArmCertValue.PhysicalRelease",
+  "ArmCertValue.RegionAlias",
+  "ArmCertValue.ReleaseGen",
+  "CT1.Words",
+  "CT2Core.Pair",
+  "CT2Core.PubMask",
+  "RtG.ClassNextG",
+  "TranslateScalarTagCheck.Actions",
+  "TranslateScalarTagCheck.Automation",
+  "TranslateSpan.ClassMTE2",
+  "TranslateSpan.CurrentClass",
+  "TranslateSpan.CurrentMTE2",
+  "TranslateSpan.DefaultClass",
+  "TranslateSpan.DefaultContext",
+  "TranslateSpan.DefaultCurrent",
+  "TranslateSpan.DefaultEntryMem",
+  "TranslateSpan.EntryControls",
+  "TranslateSpan.MachineEntry",
+  "TranslateSpan.QueryDescriptors",
+]
+globs = [
+  "ArmCertMemPipe.EntryMemG",
+  "ArmCertMemPipe.RouteG",
+  "ArmCertPipe.ChainInvG",
+  "ArmCertPipe.FDeploy",
+  "ArmCertPipe.FPrefix",
+  "ArmCertPipe.FetchG",
+  "ArmCertPipe.GPrefix",
+  "ArmCertPipe.Guard",
+  "ArmCertPipe.Prefix",
+  "ArmCertPipe.ValuePlan",
+  "ArmCertTranslateModel.StaticPieScoped",
+  "ArmCertValue.EntrySnapshot",
+  "ArmCertValue.Expr",
+  "ArmCertValue.ExprBatch",
+  "ArmCertValue.ExprStep",
+  "ArmCertValue.F",
+  "ArmCertValue.FMemory",
+  "ArmCertValue.PhysicalRelease",
+  "ArmCertValue.RegionAlias",
+  "ArmCertValue.ReleaseGen",
+  "CT0Ret",
+  "CT1.Words",
+  "CT2Core.Pair",
+  "CT2Core.PubMask",
+  "RtG.ClassNextG",
+  "TranslateScalarTagCheck.Actions",
+  "TranslateScalarTagCheck.Automation",
+  "TranslateSpan.ClassMTE2",
+  "TranslateSpan.CurrentClass",
+  "TranslateSpan.CurrentMTE2",
+  "TranslateSpan.DefaultClass",
+  "TranslateSpan.DefaultContext",
+  "TranslateSpan.DefaultCurrent",
+  "TranslateSpan.DefaultEntryMem",
+  "TranslateSpan.EntryControls",
+  "TranslateSpan.MachineEntry",
+  "TranslateSpan.QueryDescriptors",
+]

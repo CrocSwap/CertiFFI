@@ -1,0 +1,533 @@
+-- Generated from the signed heap-v2 memory rows by gen_heap_memory.py.
+import DefaultHeapMemFacts
+import DefaultHeapCode
+import DefaultHeapSavedMemFacts
+
+open Sail ArmFull ArmCert.Translate ArmCert.Translate.Model ArmCertWalk
+open HeapV2StepCerts
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 1024
+namespace ReleaseProfile.DefaultHeapMemRows
+
+/-- step 55 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_55 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 55 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 55 + 1 ≤ capacity)
+    (drawBound : drawsBefore 55 + 1 ≤ drawsBefore (55 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 55)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (55 + 1)) (MemNextE.MemRE spec mapping 55 (RtSaved.accPA pins mapping (55, 0, (-55), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (55, 0, (-55), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 55 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (55, 0, (-55), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_55).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (55, 0, (-55), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_55).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_55).2.1 (MemSteps.step_55).2.2.2 rfl rfl (MemSteps.step_55).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 55 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 55 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 58 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_58 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 58 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 58 + 1 ≤ capacity)
+    (drawBound : drawsBefore 58 + 1 ≤ drawsBefore (58 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 58)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (58 + 1)) (MemNextE.MemRE spec mapping 58 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (58, 2, 10, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 58 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (58, 2, 10, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_58).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_58).2.1 (MemSteps.step_58).2.2.2 rfl rfl (MemSteps.step_58).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 58 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 58 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 59 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_59 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 59 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 59 + 1 ≤ capacity)
+    (drawBound : drawsBefore 59 + 1 ≤ drawsBefore (59 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 59)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (59 + 1)) (MemNextE.MemRE spec mapping 59 (RtSaved.accPA pins mapping (59, 0, (-54), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (59, 0, (-54), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 59 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (59, 0, (-54), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_59).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (59, 0, (-54), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_59).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_59).2.1 (MemSteps.step_59).2.2.2 rfl rfl (MemSteps.step_59).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 59 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 59 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 62 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_62 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 62 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 62 + 1 ≤ capacity)
+    (drawBound : drawsBefore 62 + 1 ≤ drawsBefore (62 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 62)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (62 + 1)) (MemNextE.MemRE spec mapping 62 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (62, 2, 11, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 62 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (62, 2, 11, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_62).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_62).2.1 (MemSteps.step_62).2.2.2 rfl rfl (MemSteps.step_62).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 62 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 62 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 63 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_63 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 63 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 63 + 1 ≤ capacity)
+    (drawBound : drawsBefore 63 + 1 ≤ drawsBefore (63 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 63)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (63 + 1)) (MemNextE.MemRE spec mapping 63 (RtSaved.accPA pins mapping (63, 0, (-53), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (63, 0, (-53), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 63 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (63, 0, (-53), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_63).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (63, 0, (-53), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_63).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_63).2.1 (MemSteps.step_63).2.2.2 rfl rfl (MemSteps.step_63).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 63 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 63 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 66 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_66 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 66 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 66 + 1 ≤ capacity)
+    (drawBound : drawsBefore 66 + 1 ≤ drawsBefore (66 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 66)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (66 + 1)) (MemNextE.MemRE spec mapping 66 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (66, 2, 12, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 66 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (66, 2, 12, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_66).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_66).2.1 (MemSteps.step_66).2.2.2 rfl rfl (MemSteps.step_66).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 66 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 66 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 67 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_67 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 67 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 67 + 1 ≤ capacity)
+    (drawBound : drawsBefore 67 + 1 ≤ drawsBefore (67 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 67)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (67 + 1)) (MemNextE.MemRE spec mapping 67 (RtSaved.accPA pins mapping (67, 0, (-52), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (67, 0, (-52), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 67 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (67, 0, (-52), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_67).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (67, 0, (-52), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_67).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_67).2.1 (MemSteps.step_67).2.2.2 rfl rfl (MemSteps.step_67).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 67 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 67 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 70 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_70 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 70 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 70 + 1 ≤ capacity)
+    (drawBound : drawsBefore 70 + 1 ≤ drawsBefore (70 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 70)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (70 + 1)) (MemNextE.MemRE spec mapping 70 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (70, 2, 13, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 70 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (70, 2, 13, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_70).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_70).2.1 (MemSteps.step_70).2.2.2 rfl rfl (MemSteps.step_70).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 70 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 70 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 71 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_71 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 71 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 71 + 1 ≤ capacity)
+    (drawBound : drawsBefore 71 + 1 ≤ drawsBefore (71 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 71)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (71 + 1)) (MemNextE.MemRE spec mapping 71 (RtSaved.accPA pins mapping (71, 0, (-51), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (71, 0, (-51), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 71 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (71, 0, (-51), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_71).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (71, 0, (-51), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_71).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_71).2.1 (MemSteps.step_71).2.2.2 rfl rfl (MemSteps.step_71).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 71 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 71 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 74 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_74 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 74 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 74 + 1 ≤ capacity)
+    (drawBound : drawsBefore 74 + 1 ≤ drawsBefore (74 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 74)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (74 + 1)) (MemNextE.MemRE spec mapping 74 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (74, 2, 14, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 74 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (74, 2, 14, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_74).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_74).2.1 (MemSteps.step_74).2.2.2 rfl rfl (MemSteps.step_74).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 74 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 74 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 75 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_75 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 75 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 75 + 1 ≤ capacity)
+    (drawBound : drawsBefore 75 + 1 ≤ drawsBefore (75 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 75)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (75 + 1)) (MemNextE.MemRE spec mapping 75 (RtSaved.accPA pins mapping (75, 0, (-50), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (75, 0, (-50), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 75 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (75, 0, (-50), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_75).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (75, 0, (-50), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_75).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_75).2.1 (MemSteps.step_75).2.2.2 rfl rfl (MemSteps.step_75).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 75 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 75 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 78 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_78 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 78 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 78 + 1 ≤ capacity)
+    (drawBound : drawsBefore 78 + 1 ≤ drawsBefore (78 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 78)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (78 + 1)) (MemNextE.MemRE spec mapping 78 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (78, 2, 15, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 78 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (78, 2, 15, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_78).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_78).2.1 (MemSteps.step_78).2.2.2 rfl rfl (MemSteps.step_78).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 78 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 78 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 79 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_79 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 79 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 79 + 1 ≤ capacity)
+    (drawBound : drawsBefore 79 + 1 ≤ drawsBefore (79 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 79)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (79 + 1)) (MemNextE.MemRE spec mapping 79 (RtSaved.accPA pins mapping (79, 0, (-49), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (79, 0, (-49), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 79 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (79, 0, (-49), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_79).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (79, 0, (-49), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_79).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_79).2.1 (MemSteps.step_79).2.2.2 rfl rfl (MemSteps.step_79).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 79 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 79 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 82 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_82 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 82 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 82 + 1 ≤ capacity)
+    (drawBound : drawsBefore 82 + 1 ≤ drawsBefore (82 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 82)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (82 + 1)) (MemNextE.MemRE spec mapping 82 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (82, 2, 16, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 82 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (82, 2, 16, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_82).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_82).2.1 (MemSteps.step_82).2.2.2 rfl rfl (MemSteps.step_82).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 82 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 82 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 83 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_83 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 83 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 83 + 1 ≤ capacity)
+    (drawBound : drawsBefore 83 + 1 ≤ drawsBefore (83 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 83)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (83 + 1)) (MemNextE.MemRE spec mapping 83 (RtSaved.accPA pins mapping (83, 0, (-48), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (83, 0, (-48), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 83 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (83, 0, (-48), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_83).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (83, 0, (-48), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_83).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_83).2.1 (MemSteps.step_83).2.2.2 rfl rfl (MemSteps.step_83).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 83 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 83 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 86 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_86 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 86 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 86 + 1 ≤ capacity)
+    (drawBound : drawsBefore 86 + 1 ≤ drawsBefore (86 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 86)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (86 + 1)) (MemNextE.MemRE spec mapping 86 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (86, 2, 17, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 86 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (86, 2, 17, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_86).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_86).2.1 (MemSteps.step_86).2.2.2 rfl rfl (MemSteps.step_86).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 86 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 86 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 87 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_87 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 87 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 87 + 1 ≤ capacity)
+    (drawBound : drawsBefore 87 + 1 ≤ drawsBefore (87 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 87)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (87 + 1)) (MemNextE.MemRE spec mapping 87 (RtSaved.accPA pins mapping (87, 0, (-47), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (87, 0, (-47), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 87 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (87, 0, (-47), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_87).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (87, 0, (-47), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_87).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_87).2.1 (MemSteps.step_87).2.2.2 rfl rfl (MemSteps.step_87).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 87 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 87 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 90 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_90 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 90 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 90 + 1 ≤ capacity)
+    (drawBound : drawsBefore 90 + 1 ≤ drawsBefore (90 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 90)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (90 + 1)) (MemNextE.MemRE spec mapping 90 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (90, 2, 18, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 90 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (90, 2, 18, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_90).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_90).2.1 (MemSteps.step_90).2.2.2 rfl rfl (MemSteps.step_90).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 90 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 90 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 91 @+0x134 STRB_post 38001464 (Strb {'Rt': 4, 'Rn': 3, 'imm9': 1}) -/
+theorem step_91 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 91 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 91 + 1 ≤ capacity)
+    (drawBound : drawsBefore 91 + 1 ≤ drawsBefore (91 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 91)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (91 + 1)) (MemNextE.MemRE spec mapping 91 (RtSaved.accPA pins mapping (91, 0, (-46), 1, true)) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (91, 0, (-46), 1, true)) true 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 91 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (RtSaved.accPA pins mapping (91, 0, (-46), 1, true)) (MemNext.codeD_mono (MemNext.accPA_sub (MemSteps.step_91).1) codeD) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (91, 0, (-46), 1, true)) true 1) nodup
+    (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) NativeEntryBodyMem.Strb.writes 649
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Strb real spec config rows mapping dataStatic (MemSteps.step_91).1 rfl (1#9) (3#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_91).2.1 (MemSteps.step_91).2.2.2 rfl rfl (MemSteps.step_91).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 91 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 91 pins table catalogue static 0x134 0x38001464
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Strb.selected (4#5) (3#5) (1#9)) (by decide +kernel) x inv.core)
+
+/-- step 94 @+0x130 LDRB_post 38401424 (Ldrb {'Rt': 4, 'Rn': 1, 'imm9': 1}) -/
+theorem step_94 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (base : BitVec 64) (budget : Nat) (pins : HeapV2E17.Pins) (table : Nat → Prop)
+    (catalogue : NativeMteTagCheck.ControlCatalogue) (entry : ArmBridge.Draft.NativeState)
+    (capacity : Nat) (drawsBefore : Nat → Nat)
+    (static : CodeStatic mapping base (rowsFootprint spec.imageRows).byte)
+    (dataStatic : C3.DataStatic pins mapping (rowsFootprint spec.imageRows))
+    (pinAligned : ∀ i, HeapV2E17.pin pins i % 16 = 0)
+    (codeD : ImageTableSeparated codeScope base mapping (MemNext.dataBytes pins mapping))
+    (nodup : (spec.logicalRows.map (·.logical)).Nodup) (room : 94 < budget) (page : base.toNat % 4096 = 0)
+    (statusBound : drawsBefore 94 + 1 ≤ capacity)
+    (drawBound : drawsBefore 94 + 1 ≤ drawsBefore (94 + 1)) :
+    ArmBridge.CruxGenGuarded.ChainInvV4.RichStep real (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore 94)
+      (ReleaseProfile.DefaultHeapEntryMem.HeapInv spec config rows mapping (HeapV2E17.consumerMap pins base.toNat mapping table) codeScope (HeapV2.image base) base base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins catalogue entry capacity drawsBefore (94 + 1)) (MemNextE.MemRE spec mapping 94 (fun _ => False) (fun _ _ => True) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (94, 2, 19, 1, false)) false 1)) :=
+  ReleaseProfile.DefaultHeapEntryMem.heap_mem_step real spec config rows mapping _ codeScope (HeapV2.image base) base static.separated
+    base ArmBridge.CruxGenGuarded.HeapV2Compose.offsetOf budget pins 94 catalogue entry capacity drawsBefore 1 statusBound drawBound room (by decide) page (by decide +kernel)
+    (fun _ => False) (fun _ _ _ _ h => h) (fun _ _ => True) (fun _ _ _ _ _ _ => trivial) (by decide +kernel) (DataRecs.dataRecs spec (HeapV2E17.dataVA pins (94, 2, 19, 1, false)) false 1) nodup
+    (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) NativeEntryBodyMem.Ldrb.writes 631
+    (fun x => x.regs._PC + 4#64)
+    (fun x _ => ReleaseProfile.DefaultHeapMemFacts.memE_Ldrb real spec config rows mapping dataStatic (MemSteps.step_94).1 rfl (1#9) (1#5) (4#5) (by decide) (by decide) (by decide) (by decide +kernel) (MemSteps.step_94).2.1 (MemSteps.step_94).2.2.2 rfl rfl (MemSteps.step_94).2.2.1 catalogue x)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memNextPlaced spec config rows mapping base budget 94 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) x inv.core)
+    (fun x inv => ReleaseProfile.DefaultHeapCode.memFetch spec config rows mapping base budget 94 pins table catalogue static 0x130 0x38401424
+      (by decide +kernel) (by decide +kernel) (NativeEntryBodyDispatch.Ldrb.selected (4#5) (1#5) (1#9)) (by decide +kernel) x inv.core)
+
+end ReleaseProfile.DefaultHeapMemRows

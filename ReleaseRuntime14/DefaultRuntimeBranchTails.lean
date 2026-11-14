@@ -1,0 +1,922 @@
+import BcondAction
+import Bridge.CruxGenGuarded.EntryBodyBcond
+import Bridge.CruxGenGuarded.EntryBodyRet
+import DefaultRuntimeBranchEvent
+import RtBranch.BranchStepV3
+import NativeEntryBodyDispatch.B
+import NativeEntryBodyDispatch.Cbz32
+import NativeEntryBodyDispatch.Tbnz32
+import NativeTagCheck.Tail
+import NativeR14B.Cbz
+import NativeR14B.Run
+import RuntimeBranchActions
+import TranslateScalarTagCheck.Actions
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open TagCheckFrames
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 1024
+set_option profiler true
+set_option profiler.threshold 1000
+namespace ReleaseProfile.DefaultRuntimeBranchChoice
+theorem bcond (cond : BitVec 4) (imm19 : BitVec 19) : Preserves (decode_b_cond_aarch64_instrs_branch_conditional_cond cond imm19) := by
+  unfold decode_b_cond_aarch64_instrs_branch_conditional_cond
+  scalar_oracle_frame
+
+#print axioms bcond
+
+theorem b (imm26 : BitVec 26) : Preserves (decode_b_uncond_aarch64_instrs_branch_unconditional_immediate imm26 0#1) := by
+  intro state value after run
+  have decodeBoundary : (decode_b_uncond_aarch64_instrs_branch_unconditional_immediate imm26 0#1 : SailM Unit) state =
+      (BranchTo (NativeEntryCallerParts.blTarget imm26 state) BranchType.BranchType_DIR false : SailM Unit) state := by
+    simpa only [NativeR14B.BPrefix_native, NativeEntryCallerParts.blTarget] using NativeR14B.BPrefix_complete imm26 state
+  rw [decodeBoundary] at run
+  exact TranslateScalarTagCheck.Actions.branch_to_preserves _ _ _ state value after run
+
+#print axioms b
+
+theorem cbz (Rt : BitVec 5) (imm19 : BitVec 19) : Preserves (decode_cbz_aarch64_instrs_branch_conditional_compare Rt imm19 0#1 0#1) := by
+  unfold decode_cbz_aarch64_instrs_branch_conditional_compare
+  scalar_oracle_frame
+
+#print axioms cbz
+
+theorem tbnz (Rt : BitVec 5) (imm14 : BitVec 14) : Preserves (decode_tbnz_aarch64_instrs_branch_conditional_test Rt imm14 0#5 1#1 0#1) := by
+  unfold decode_tbnz_aarch64_instrs_branch_conditional_test
+  scalar_oracle_frame
+
+#print axioms tbnz
+
+end ReleaseProfile.DefaultRuntimeBranchChoice
+
+namespace ReleaseProfile.DefaultRuntimeBcondEventTail
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.CruxBrObl Crypto.BcondDec Crypto.BcondCore
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+set_option profiler true
+set_option profiler.threshold 1000
+attribute [local instance 10] Classical.propDecidable
+
+abbrev W (cond : BitVec 4) (imm19 : BitVec 19) : BitVec 32 := NativeEntryBodyDispatch.Bcond.selected cond imm19
+abbrev A (cond : BitVec 4) (imm19 : BitVec 19) : SailM Unit :=
+  decode_b_cond_aarch64_instrs_branch_conditional_cond cond imm19
+
+#check "CURRENT_DECL Bcond.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real]
+    (source : NativeState) (cond : BitVec 4) (imm19 : BitVec 19)
+    (noEret : (Sail.BitVec.extractLsb (W cond imm19) 31 12 == 879088#20) = false)
+    (hlow : (source.regs._PC + sign_extend (imm19 ++ 0#2) 64).toNat < 2 ^ 55)
+    (nextPC : BitVec 64)
+    (hnext : (if Crypto.BcondCore.bcondC cond source.regs then
+      source.regs._PC + sign_extend (imm19 ++ 0#2) 64 else source.regs._PC + 4#64) = nextPC) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W cond imm19) 69 source nextPC := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W cond imm19) 69
+  have metadataQuiet := actionState_quiet (W cond imm19) sp 69 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W cond imm19) 69
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W cond imm19) sp 69).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W cond imm19) sp 69).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W cond imm19) sp 69) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W cond imm19) sp 69) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W cond imm19) sp 69))
+  have hlowT : ((actionState (W cond imm19) sp 69).regs._PC + sign_extend (imm19 ++ 0#2) 64).toNat < 2 ^ 55 := by
+    rw [metadataInput.pc]; exact hlow
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, btnRun, pcRun, btRun, physRun, _npRun, gicRun, bttA, gprA, spA, psA⟩ :=
+    ReleaseProfile.BcondAction.run real cond imm19 (actionState (W cond imm19) sp 69) bpT.base bpT.vhe hlowT metaPins.btt
+  have dispatch : DispatchAt real (W cond imm19) (A cond imm19) 69 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Bcond.dispatch_at real pc cond imm19 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W cond imm19) (A cond imm19) enc0 sp currentGuard 69
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W cond imm19) enc0 fetched =
+      nativeAfterAction real source (W cond imm19) enc0 a := by
+    calc
+      nativeTail real source (W cond imm19) enc0 fetched =
+          afterSpecPmu real source (W cond imm19) enc0 sp :=
+        spec_pmu_boundary real source (W cond imm19) enc0 fetched sp hook
+      _ = nativeAtAction real source (W cond imm19) (A cond imm19) enc0 (actionState (W cond imm19) sp 69) := boundary
+      _ = nativeAfterAction real source (W cond imm19) enc0 a :=
+        action_boundary real source (W cond imm19) (A cond imm19) enc0 (actionState (W cond imm19) sp 69) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W cond imm19) sp 69) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have next : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W cond imm19) sp 69) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W cond imm19) enc0 a budget aQuiet actionPins next enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, gicRun]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have pcF : fin.regs._PC = nextPC := by
+    rw [← hnext]
+    have hbtT : (actionState (W cond imm19) sp 69).regs.__BranchTaken = false := by
+      simp only [actionState] <;> (split <;> rfl)
+    have agreeT : Crypto.BcondCore.bcondC cond (actionState (W cond imm19) sp 69).regs ↔ Crypto.BcondCore.bcondC cond source.regs := by
+      unfold Crypto.BcondCore.bcondC; rw [← metadataInput.ps]
+    have actionPC := metadataInput.pc
+    rw [pc, pcRun, btRun, NativeEntryBodyBranch.Decide.bcond_fBT_eq cond imm19 _ hbtT, NativeEntryBodyBranch.Decide.bcond_fPC_eq cond imm19, actionPC]
+    by_cases hc : Crypto.BcondCore.bcondC cond source.regs
+    · simp [agreeT.mpr hc, hc]
+    · have hT : ¬ Crypto.BcondCore.bcondC cond (actionState (W cond imm19) sp 69).regs := fun h => hc (agreeT.mp h)
+      simp [hT, hc]
+
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.bcond cond imm19) (actionState (W cond imm19) sp 69) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W cond imm19) enc0 69 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 69).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 69).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBcondEventTail
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichRet
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.CruxBrObl Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+#check "CURRENT_DECL Ret.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (Rn : BitVec 5) (hRn : Rn.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (W Rn) 31 12 == 879088#20) = false)
+    (hlow : (source.regs.gpr[(GPRSummary.key Rn.toNat).val]).toNat < 2 ^ 55) (next : BitVec 64)
+    (hnext : source.regs.gpr[(GPRSummary.key Rn.toNat).val] = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W Rn) 94 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W Rn) 94
+  have metadataQuiet := actionState_quiet (W Rn) sp 94 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W Rn) 94
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W Rn) sp 94).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W Rn) sp 94).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W Rn) sp 94) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W Rn) sp 94) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W Rn) sp 94))
+  have hlowT : ((actionState (W Rn) sp 94).regs.gpr[(GPRSummary.key Rn.toNat).val]).toNat < 2 ^ 55 := by
+    rw [← metadataInput.gpr]; exact hlow
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, btnRun, _pcRun, _btRun, physRun, _npRun, gicRun, bttA,gprA,spA,psA⟩ :=
+    TranslateSpan.BranchMTE2.run Rn hRn (actionState (W Rn) sp 94) bpT btnT hlowT
+  have dispatch : DispatchAt real (W Rn) (A Rn) 94 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Ret.dispatch_at real pc Rn t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W Rn) (A Rn) enc0 sp currentGuard 94
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W Rn) enc0 fetched =
+      nativeAfterAction real source (W Rn) enc0 a := by
+    calc
+      nativeTail real source (W Rn) enc0 fetched =
+          afterSpecPmu real source (W Rn) enc0 sp :=
+        spec_pmu_boundary real source (W Rn) enc0 fetched sp hook
+      _ = nativeAtAction real source (W Rn) (A Rn) enc0 (actionState (W Rn) sp 94) := boundary
+      _ = nativeAfterAction real source (W Rn) enc0 a :=
+        action_boundary real source (W Rn) (A Rn) enc0 (actionState (W Rn) sp 94) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W Rn) sp 94) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W Rn) sp 94) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W Rn) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, gicRun]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have pcF : fin.regs._PC = next := by
+    rw [pc, _btRun, NativeEntryBodyBranch.Decide.ret_fBT_eq, if_pos rfl, _pcRun,
+      NativeEntryBodyBranch.Decide.ret_fPC_eq, ← metadataInput.gpr, hnext]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := TranslateScalarTagCheck.Actions.ret_choice Rn hRn (actionState (W Rn) sp 94)
+    bpT.gcs () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W Rn) enc0 94 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 94).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 94).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichRet
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichB
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+abbrev W (imm26 : BitVec 26) : BitVec 32 := NativeEntryBodyDispatch.B.selected imm26
+abbrev A (imm26 : BitVec 26) : SailM Unit := decode_b_uncond_aarch64_instrs_branch_unconditional_immediate imm26 0#1
+
+#check "CURRENT_DECL B.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (imm26 : BitVec 26)
+    (hlow : (NativeEntryCallerParts.blTarget imm26 source).toNat < 2 ^ 55)
+    (noEret : (Sail.BitVec.extractLsb (W imm26) 31 12 == 879088#20) = false) (next : BitVec 64) (hnext : NativeEntryCallerParts.blTarget imm26 source = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W imm26) 67 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W imm26) 67
+  have metadataQuiet := actionState_quiet (W imm26) sp 67 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W imm26) 67
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W imm26) sp 67).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W imm26) sp 67).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W imm26) sp 67) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W imm26) sp 67) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W imm26) sp 67))
+  have hlowT : (NativeEntryCallerParts.blTarget imm26 (actionState (W imm26) sp 67)).toNat < 2 ^ 55 := by
+    unfold NativeEntryCallerParts.blTarget at hlow ⊢
+    rw [metadataInput.pc]; exact hlow
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, btnRun, pcRun, btRun, physRun, _npRun, gicRun, bttA,
+      gprA, spA, psA⟩ := ReleaseProfile.RuntimeBranch.b_run_full imm26 (actionState (W imm26) sp 67) bpT hlowT
+  have dispatch : DispatchAt real (W imm26) (A imm26) 67 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.B.dispatch_at real pc imm26 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W imm26) (A imm26) enc0 sp currentGuard 67
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W imm26) enc0 fetched =
+      nativeAfterAction real source (W imm26) enc0 a := by
+    calc
+      nativeTail real source (W imm26) enc0 fetched =
+          afterSpecPmu real source (W imm26) enc0 sp :=
+        spec_pmu_boundary real source (W imm26) enc0 fetched sp hook
+      _ = nativeAtAction real source (W imm26) (A imm26) enc0 (actionState (W imm26) sp 67) := boundary
+      _ = nativeAfterAction real source (W imm26) enc0 a :=
+        action_boundary real source (W imm26) (A imm26) enc0 (actionState (W imm26) sp 67) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W imm26) sp 67) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W imm26) sp 67) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W imm26) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, gicRun]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have pcF : fin.regs._PC = next := by
+    rw [pc, btRun]
+    simp only [ite_true, ↓reduceIte]
+    rw [pcRun, ← hnext]
+    unfold NativeEntryCallerParts.blTarget
+    rw [metadataInput.pc]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.b imm26) (actionState (W imm26) sp 67) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W imm26) enc0 67 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 67).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 67).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichB
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichTbnzTaken
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+abbrev W (Rt : BitVec 5) (imm14 : BitVec 14) : BitVec 32 := NativeEntryBodyDispatch.Tbnz32.selected Rt imm14
+abbrev A (Rt : BitVec 5) (imm14 : BitVec 14) : SailM Unit := decode_tbnz_aarch64_instrs_branch_conditional_test Rt imm14 0#5 1#1 0#1
+
+#check "CURRENT_DECL TbnzTaken.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (Rt : BitVec 5) (imm14 : BitVec 14) (hrt : Rt.toNat < 31)
+    (hc : NativeR14B.tbnzBit Rt source = 1#1)
+    (hlow : (NativeR14B.tbnzTarget imm14 source).toNat < 2 ^ 55)
+    (noEret : (Sail.BitVec.extractLsb (W Rt imm14) 31 12 == 879088#20) = false) (next : BitVec 64) (hnext : NativeR14B.tbnzTarget imm14 source = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W Rt imm14) 1009 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W Rt imm14) 1009
+  have metadataQuiet := actionState_quiet (W Rt imm14) sp 1009 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W Rt imm14) 1009
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W Rt imm14) sp 1009).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W Rt imm14) sp 1009).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W Rt imm14) sp 1009) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W Rt imm14) sp 1009) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W Rt imm14) sp 1009))
+  have hcT : NativeR14B.tbnzBit Rt (actionState (W Rt imm14) sp 1009) = 1#1 := by
+    unfold NativeR14B.tbnzBit at hc ⊢
+    rw [← metadataInput.gpr]; exact hc
+  have hlowT : (NativeR14B.tbnzTarget imm14 (actionState (W Rt imm14) sp 1009)).toNat < 2 ^ 55 := by
+    unfold NativeR14B.tbnzTarget at hlow ⊢
+    rw [metadataInput.pc]; exact hlow
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, btnRun, pcRun, btRun, physRun, _npRun, gicRun, bttA,
+      gprA, spA, psA⟩ := ReleaseProfile.RuntimeBranch.tbnz_run_taken Rt imm14 (actionState (W Rt imm14) sp 1009) bpT hrt hcT hlowT
+  have dispatch : DispatchAt real (W Rt imm14) (A Rt imm14) 1009 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Tbnz32.dispatch_at real pc Rt imm14 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W Rt imm14) (A Rt imm14) enc0 sp currentGuard 1009
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W Rt imm14) enc0 fetched =
+      nativeAfterAction real source (W Rt imm14) enc0 a := by
+    calc
+      nativeTail real source (W Rt imm14) enc0 fetched =
+          afterSpecPmu real source (W Rt imm14) enc0 sp :=
+        spec_pmu_boundary real source (W Rt imm14) enc0 fetched sp hook
+      _ = nativeAtAction real source (W Rt imm14) (A Rt imm14) enc0 (actionState (W Rt imm14) sp 1009) := boundary
+      _ = nativeAfterAction real source (W Rt imm14) enc0 a :=
+        action_boundary real source (W Rt imm14) (A Rt imm14) enc0 (actionState (W Rt imm14) sp 1009) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W Rt imm14) sp 1009) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W Rt imm14) sp 1009) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W Rt imm14) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, gicRun]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have pcF : fin.regs._PC = next := by
+    rw [pc, btRun]
+    simp only [ite_true, ↓reduceIte]
+    rw [pcRun, ← hnext]
+    unfold NativeR14B.tbnzTarget
+    rw [metadataInput.pc]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.tbnz Rt imm14) (actionState (W Rt imm14) sp 1009) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W Rt imm14) enc0 1009 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 1009).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 1009).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichTbnzTaken
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichTbnzNot
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+abbrev W (Rt : BitVec 5) (imm14 : BitVec 14) : BitVec 32 := NativeEntryBodyDispatch.Tbnz32.selected Rt imm14
+abbrev A (Rt : BitVec 5) (imm14 : BitVec 14) : SailM Unit := decode_tbnz_aarch64_instrs_branch_conditional_test Rt imm14 0#5 1#1 0#1
+
+#check "CURRENT_DECL TbnzNot.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (Rt : BitVec 5) (imm14 : BitVec 14) (hrt : Rt.toNat < 31)
+    (hc : ¬ NativeR14B.tbnzBit Rt source = 1#1)
+    (noEret : (Sail.BitVec.extractLsb (W Rt imm14) 31 12 == 879088#20) = false) (next : BitVec 64) (hnext : source.regs._PC + 4#64 = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W Rt imm14) 1009 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W Rt imm14) 1009
+  have metadataQuiet := actionState_quiet (W Rt imm14) sp 1009 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W Rt imm14) 1009
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W Rt imm14) sp 1009).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W Rt imm14) sp 1009).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W Rt imm14) sp 1009) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W Rt imm14) sp 1009) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W Rt imm14) sp 1009))
+  have hcT : ¬ NativeR14B.tbnzBit Rt (actionState (W Rt imm14) sp 1009) = 1#1 := by
+    unfold NativeR14B.tbnzBit at hc ⊢
+    rw [← metadataInput.gpr]; exact hc
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, hregs, _npRun⟩ := ReleaseProfile.RuntimeBranch.tbnz_run_not_taken Rt imm14 (actionState (W Rt imm14) sp 1009) bpT hrt hcT
+  have btnRun : a.regs.BTypeNext = (actionState (W Rt imm14) sp 1009).regs.BTypeNext := by rw [hregs]
+  have physRun : a.regs.PhysicalCount = (actionState (W Rt imm14) sp 1009).regs.PhysicalCount := by rw [hregs]
+  have bttA : a.regs.Branchtypetaken ≠ BranchType.BranchType_RESET := by rw [hregs]; exact metaPins.btt
+  have gprA : a.regs.gpr = (actionState (W Rt imm14) sp 1009).regs.gpr := by rw [hregs]
+  have spA : a.regs.SP_EL0 = (actionState (W Rt imm14) sp 1009).regs.SP_EL0 := by rw [hregs]
+  have psA : a.regs.PSTATE = (actionState (W Rt imm14) sp 1009).regs.PSTATE := by rw [hregs]
+  have dispatch : DispatchAt real (W Rt imm14) (A Rt imm14) 1009 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Tbnz32.dispatch_at real pc Rt imm14 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W Rt imm14) (A Rt imm14) enc0 sp currentGuard 1009
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W Rt imm14) enc0 fetched =
+      nativeAfterAction real source (W Rt imm14) enc0 a := by
+    calc
+      nativeTail real source (W Rt imm14) enc0 fetched =
+          afterSpecPmu real source (W Rt imm14) enc0 sp :=
+        spec_pmu_boundary real source (W Rt imm14) enc0 fetched sp hook
+      _ = nativeAtAction real source (W Rt imm14) (A Rt imm14) enc0 (actionState (W Rt imm14) sp 1009) := boundary
+      _ = nativeAfterAction real source (W Rt imm14) enc0 a :=
+        action_boundary real source (W Rt imm14) (A Rt imm14) enc0 (actionState (W Rt imm14) sp 1009) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W Rt imm14) sp 1009) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W Rt imm14) sp 1009) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W Rt imm14) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, hregs]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have hbt : (actionState (W Rt imm14) sp 1009).regs.__BranchTaken = false := by
+    simp only [actionState] <;> (split <;> rfl)
+  have pcF : fin.regs._PC = next := by
+    rw [pc, hregs]
+    simp only [hbt, Bool.false_eq_true, ↓reduceIte]
+    rw [metadataInput.pc, hnext]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.tbnz Rt imm14) (actionState (W Rt imm14) sp 1009) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W Rt imm14) enc0 1009 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 1009).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 1009).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichTbnzNot
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichCbzTaken
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+abbrev W (Rt : BitVec 5) (imm19 : BitVec 19) : BitVec 32 := NativeEntryBodyDispatch.Cbz32.selected Rt imm19
+abbrev A (Rt : BitVec 5) (imm19 : BitVec 19) : SailM Unit := decode_cbz_aarch64_instrs_branch_conditional_compare Rt imm19 0#1 0#1
+
+#check "CURRENT_DECL CbzTaken.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (Rt : BitVec 5) (imm19 : BitVec 19) (hrt : Rt.toNat < 31)
+    (hc : NativeR14B.cbz32Cond Rt source)
+    (hlow : (NativeR14B.cbz32Target imm19 source).toNat < 2 ^ 55)
+    (noEret : (Sail.BitVec.extractLsb (W Rt imm19) 31 12 == 879088#20) = false) (next : BitVec 64) (hnext : NativeR14B.cbz32Target imm19 source = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W Rt imm19) 118 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W Rt imm19) 118
+  have metadataQuiet := actionState_quiet (W Rt imm19) sp 118 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W Rt imm19) 118
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W Rt imm19) sp 118).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W Rt imm19) sp 118).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W Rt imm19) sp 118) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W Rt imm19) sp 118) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W Rt imm19) sp 118))
+  have hcT : NativeR14B.cbz32Cond Rt (actionState (W Rt imm19) sp 118) := by
+    unfold NativeR14B.cbz32Cond at hc ⊢
+    rw [← metadataInput.gpr]; exact hc
+  have hlowT : (NativeR14B.cbz32Target imm19 (actionState (W Rt imm19) sp 118)).toNat < 2 ^ 55 := by
+    unfold NativeR14B.cbz32Target at hlow ⊢
+    rw [metadataInput.pc]; exact hlow
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, btnRun, pcRun, btRun, physRun, _npRun, gicRun, bttA,
+      gprA, spA, psA⟩ := ReleaseProfile.RuntimeBranch.cbz32_run_taken Rt imm19 (actionState (W Rt imm19) sp 118) bpT hrt hcT hlowT
+  have dispatch : DispatchAt real (W Rt imm19) (A Rt imm19) 118 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Cbz32.dispatch_at real pc Rt imm19 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W Rt imm19) (A Rt imm19) enc0 sp currentGuard 118
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W Rt imm19) enc0 fetched =
+      nativeAfterAction real source (W Rt imm19) enc0 a := by
+    calc
+      nativeTail real source (W Rt imm19) enc0 fetched =
+          afterSpecPmu real source (W Rt imm19) enc0 sp :=
+        spec_pmu_boundary real source (W Rt imm19) enc0 fetched sp hook
+      _ = nativeAtAction real source (W Rt imm19) (A Rt imm19) enc0 (actionState (W Rt imm19) sp 118) := boundary
+      _ = nativeAfterAction real source (W Rt imm19) enc0 a :=
+        action_boundary real source (W Rt imm19) (A Rt imm19) enc0 (actionState (W Rt imm19) sp 118) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W Rt imm19) sp 118) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W Rt imm19) sp 118) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W Rt imm19) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, gicRun]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have pcF : fin.regs._PC = next := by
+    rw [pc, btRun]
+    simp only [ite_true, ↓reduceIte]
+    rw [pcRun, ← hnext]
+    unfold NativeR14B.cbz32Target
+    rw [metadataInput.pc]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.cbz Rt imm19) (actionState (W Rt imm19) sp 118) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W Rt imm19) enc0 118 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 118).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 118).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichCbzTaken
+
+namespace ReleaseProfile.DefaultRuntimeBranch.RichCbzNot
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded
+open ArmBridge.CruxGenBr Crypto.BcondCore
+open ArmBridge.CruxGenGuarded.EntryBodyRet
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+
+abbrev W (Rt : BitVec 5) (imm19 : BitVec 19) : BitVec 32 := NativeEntryBodyDispatch.Cbz32.selected Rt imm19
+abbrev A (Rt : BitVec 5) (imm19 : BitVec 19) : SailM Unit := decode_cbz_aarch64_instrs_branch_conditional_compare Rt imm19 0#1 0#1
+
+#check "CURRENT_DECL CbzNot.tail_at"
+theorem tail_at (real : Type) [Sail.SailReal real] (source : NativeState) (Rt : BitVec 5) (imm19 : BitVec 19) (hrt : Rt.toNat < 31)
+    (hc : ¬ NativeR14B.cbz32Cond Rt source)
+    (noEret : (Sail.BitVec.extractLsb (W Rt imm19) 31 12 == 879088#20) = false) (next : BitVec 64) (hnext : source.regs._PC + 4#64 = next) :
+    ReleaseProfile.DefaultRuntimeBranchEvent.BranchTailEvent real (W Rt imm19) 118 source next := by
+  intro fetched enc0 budget pins bp input guard quiet it ss
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule (budget + 1) fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (W Rt imm19) 118
+  have metadataQuiet := actionState_quiet (W Rt imm19) sp 118 (budget + 1) post.quiet
+  have metaPins := entryPins_at_metadata sp (W Rt imm19) 118
+    (NativeEntryTail.EntryPins.after_E20 fetched sp (NativeEntryTail.EntryPins.of_scalar fetched pins) post.frame)
+  have btypeT : (actionState (W Rt imm19) sp 118).regs.PSTATE.BTYPE = 0#2 := by
+    show sp.regs.PSTATE.BTYPE = 0#2
+    rw [(PMUFrame.of_E20 post.frame).pstate]; exact pins.btype
+  have btnT : (actionState (W Rt imm19) sp 118).regs.BTypeNext = 0#2 := by
+    show sp.regs.BTypeNext = 0#2
+    exact (PMUFrame.of_E20 post.frame).btn.trans pins.btn
+  have pinsT : StepPins (actionState (W Rt imm19) sp 118) := scalar_pins _ metaPins btypeT btnT
+  have bpT := TranslateSpan.BranchMTE2.pins_step fetched (actionState (W Rt imm19) sp 118) bp
+    (sysEq2_trans _ _ _ input.sys (EntryBranchPins.sysEq2_symm _ _ metadataInput.sys)) pinsT
+    (EntryBranchPins.brSysEq_trans _ _ _ (EntryBranchPins.brSysEq_e20 _ _ post.frame)
+      (EntryBranchPins.brSysEq_action (W Rt imm19) sp 118))
+  have hcT : ¬ NativeR14B.cbz32Cond Rt (actionState (W Rt imm19) sp 118) := by
+    unfold NativeR14B.cbz32Cond at hc ⊢
+    rw [← metadataInput.gpr]; exact hc
+  obtain ⟨a, action, actFrame, memRun, _eventsRun, hregs, _npRun⟩ := ReleaseProfile.RuntimeBranch.cbz32_run_not_taken Rt imm19 (actionState (W Rt imm19) sp 118) bpT hrt hcT
+  have btnRun : a.regs.BTypeNext = (actionState (W Rt imm19) sp 118).regs.BTypeNext := by rw [hregs]
+  have physRun : a.regs.PhysicalCount = (actionState (W Rt imm19) sp 118).regs.PhysicalCount := by rw [hregs]
+  have bttA : a.regs.Branchtypetaken ≠ BranchType.BranchType_RESET := by rw [hregs]; exact metaPins.btt
+  have gprA : a.regs.gpr = (actionState (W Rt imm19) sp 118).regs.gpr := by rw [hregs]
+  have spA : a.regs.SP_EL0 = (actionState (W Rt imm19) sp 118).regs.SP_EL0 := by rw [hregs]
+  have psA : a.regs.PSTATE = (actionState (W Rt imm19) sp 118).regs.PSTATE := by rw [hregs]
+  have dispatch : DispatchAt real (W Rt imm19) (A Rt imm19) 118 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Cbz32.dispatch_at real pc Rt imm19 t (by simpa using see)
+  have boundary := metadata_boundary_at real source (W Rt imm19) (A Rt imm19) enc0 sp currentGuard 118
+    (by decide) dispatch
+  have prefixEq : nativeTail real source (W Rt imm19) enc0 fetched =
+      nativeAfterAction real source (W Rt imm19) enc0 a := by
+    calc
+      nativeTail real source (W Rt imm19) enc0 fetched =
+          afterSpecPmu real source (W Rt imm19) enc0 sp :=
+        spec_pmu_boundary real source (W Rt imm19) enc0 fetched sp hook
+      _ = nativeAtAction real source (W Rt imm19) (A Rt imm19) enc0 (actionState (W Rt imm19) sp 118) := boundary
+      _ = nativeAfterAction real source (W Rt imm19) enc0 a :=
+        action_boundary real source (W Rt imm19) (A Rt imm19) enc0 (actionState (W Rt imm19) sp 118) a action
+  have actionPinsStep : StepPins a :=
+    actbr_pins (actionState (W Rt imm19) sp 118) a pinsT actFrame bttA
+  have actionPins := NativeEntryTail.EntryPins.of_scalar a actionPinsStep
+  have nextB : a.regs.BTypeNext = 0#2 := btnRun.trans btnT
+  have enc : a.regs.__ThisInstrEnc = .__A64 := actFrame.enc.trans (by rfl)
+  have eret : (Sail.BitVec.extractLsb (a.regs.bank_BitVec_32 .__ThisInstr) 31 12 == 879088#20) = false := by
+    rw [actFrame.b32]
+    simpa (disch := decide) only [actionState, RegMap.set_ne, RegMap.set_same] using noEret
+  have actionIT : a.regs.ShouldAdvanceIT = false :=
+    actFrame.it.trans ((PMUFrame.of_E20 post.frame).it.trans it)
+  have actionSS : a.regs.ShouldAdvanceSS = true :=
+    actFrame.ss.trans ((PMUFrame.of_E20 post.frame).ss.trans ss)
+  have fields : GuardFieldsEq (actionState (W Rt imm19) sp 118) a :=
+    ⟨actFrame.feat, by simpa using congrArg ProcState.EL actFrame.pse,
+     by simpa using congrArg ProcState.nRW actFrame.pse, actFrame.bbool _ (by decide),
+     congrFun actFrame.bint _, congrFun actFrame.b32 _, physRun, fun k _ => congrFun actFrame.b64 k⟩
+  have aQuiet : HookQuiet (budget + 1) a := quiet_of_fields (budget + 1) _ a metadataQuiet fields
+  obtain ⟨fin, tail, finalQuiet, finalPins, sys, branch, output, events, gic, _, pc, nonProj⟩ :=
+    guarded_after_action_entry real source (W Rt imm19) enc0 a budget aQuiet actionPins nextB enc eret
+      actionIT actionSS
+  have ps := (PMUFrame.of_E20 post.frame).pstate
+  have gprF : fin.regs.gpr = fetched.regs.gpr := by
+    rw [output.gpr, gprA]
+    show sp.regs.gpr = _
+    exact frame_pres_E20 (fun x => x.gpr) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have spF : fin.regs.SP_EL0 = fetched.regs.SP_EL0 := by
+    rw [output.sp, spA]
+    show sp.regs.SP_EL0 = _
+    exact frame_pres_E20 (fun x => x.SP_EL0) (fun x => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have gicF : fin.regs.bank_Option_InterruptID .__GIC_Pending = fetched.regs.bank_Option_InterruptID .__GIC_Pending := by
+    rw [gic, hregs]
+    show sp.regs.bank_Option_InterruptID .__GIC_Pending = _
+    exact post.gic
+  have hbt : (actionState (W Rt imm19) sp 118).regs.__BranchTaken = false := by
+    simp only [actionState] <;> (split <;> rfl)
+  have pcF : fin.regs._PC = next := by
+    rw [pc, hregs]
+    simp only [hbt, Bool.false_eq_true, ↓reduceIte]
+    rw [metadataInput.pc, hnext]
+  have vz : fin.regs._Z = fetched.regs._Z := by
+    rw [output.z]
+    have zAction := congrArg (fun r : Regs => r._Z) _npRun
+    change a.regs._Z = fetched.regs._Z
+    rw [show a.regs._Z = sp.regs._Z from zAction]
+    exact frame_pres_E20 (fun r => r._Z)
+      (fun r => by simp (disch := decide) only [eraseE20, RegMap.set_ne]) post.frame
+  have actionChoice := (DefaultRuntimeBranchChoice.cbz Rt imm19) (actionState (W Rt imm19) sp 118) () a action
+  have finalChoice := NativeTagCheck.native_tail_choice_of_delta real source fetched sp a fin
+    (W Rt imm19) enc0 118 budget 0 quiet hook actionChoice prefixEq aQuiet actionPins
+    enc eret actionIT actionSS (prefixEq.trans tail)
+  exact ⟨sp, a, fin, hook, prefixEq.trans tail, actFrame, finalQuiet, finalPins, sys, branch,
+    output.mem.trans (memRun.trans ((actionState_mem _ sp 118).trans post.mem)), gicF, pcF, nonProj, gprF, spF,
+    (output.n.trans (congrArg ProcState.N psA)).trans (congrArg ProcState.N ps),
+    (output.zf.trans (congrArg ProcState.Z psA)).trans (congrArg ProcState.Z ps),
+    (output.c.trans (congrArg ProcState.C psA)).trans (congrArg ProcState.C ps),
+    (output.v.trans (congrArg ProcState.V psA)).trans (congrArg ProcState.V ps),
+    vz, events.trans (_eventsRun.trans ((actionState_events _ sp 118).trans post.events)), finalChoice⟩
+
+#print axioms tail_at
+end ReleaseProfile.DefaultRuntimeBranch.RichCbzNot

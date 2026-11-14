@@ -1,0 +1,90 @@
+import Bridge.CruxGenGuarded.OwnerMetadata
+import Bridge.CruxGenGuarded.Action
+import NativeEntryInput.Input
+import NativeEntryBodyContract.Adc64ZRm
+import NativeEntryBodyAdapters.Adc64ZRm
+import NativeEntryBodyDispatch.Adc64ZRm
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+namespace ArmBridge.CruxGenGuarded.EntryBodyAdc64ZRm
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGenGuarded
+open ArmCert.HookQuiet.V0 (HookQuiet)
+set_option autoImplicit false
+set_option maxHeartbeats 100000
+set_option maxRecDepth 512
+set_option Elab.async false
+set_option profiler true
+set_option profiler.threshold 1000
+
+/- Internal fixed-class action-prefix composition over canonical states.
+No initial/current memory identity or caller future action/guard is supplied.
+Fetch/input/guard construction, actual tail/modelStep and landing remain open.
+BTI alone permits arbitrary incoming BTYPE/BTN; the other class pin requirements
+are explicit internal preconditions to derive from the actual protected phase. -/
+run_cmd do
+  IO.eprintln "CURRENT_DECL CruxGenGuarded.EntryBodyAdc64ZRm.action_prefix"
+  (← IO.getStderr).flush
+
+theorem action_prefix (real : Type) [Sail.SailReal real]
+    (source fetched : NativeState) (enc0 : __InstrEnc)
+    (Rd : BitVec 5)
+    (Rn : BitVec 5) (rd : Rd.toNat < 31) (rn : Rn.toNat < 31)
+    (profile : NativeEntryBodyAdapters.Adc64ZRm.Profile source) (pins : StepPins fetched)
+    (input : NativeEntryInput.Input source fetched)
+    (guard : MetadataGuard fetched) (ticks : Nat) (quiet : HookQuiet ticks fetched) :
+    ∃ sp fin,
+      (PMUEvent PMU_EVENT_INST_SPEC : SailM Unit) fetched = .ok () sp ∧
+      NativeEntryInput.Input source (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) ∧
+      (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).mem = fetched.mem ∧
+      (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).events = fetched.events ∧
+      nativeTail real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 fetched =
+        nativeAfterAction real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 fin ∧
+      NativeEntryBody.Adc64ZRm.projection fin =
+        NativeEntryBody.Adc64ZRm.expected (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) Rd Rn ∧
+      NativeEntryContract.Frame NativeEntryBodyAdapters.Adc64ZRm.writes
+        (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) fin ∧
+      HookQuiet ticks fin ∧ fin.mem = fetched.mem ∧
+      fin.events = fetched.events := by
+  obtain ⟨sp, hook, post⟩ := Owner.spec_rule ticks fetched quiet
+  have currentGuard := guard.after_E20 post.frame
+  have el : fetched.regs.PSTATE.EL = 0#2 := by
+    rw [← input.ps]
+    exact input.el0
+  have currentInput := input.trans (NativeEntryInput.of_E20 fetched sp post.frame el)
+  have metadataInput := currentInput.after_metadata (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) 6
+  have metadataQuiet := actionState_quiet (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6 ticks post.quiet
+  have currentPins := e20_pins fetched sp pins post.frame
+  have classGuard : NativeEntryBody.Adc64ZRm.Guard (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) Rd Rn := by
+    exact NativeEntryBodyAdapters.Adc64ZRm.guard_at_metadata source sp Rd Rn (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) 6 profile currentInput.controls currentPins ticks post.quiet rd rn
+  obtain ⟨fin, action, projection, frame, finalQuiet⟩ :=
+    NativeEntryBodyContract.Adc64ZRm.run (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) Rd Rn classGuard ticks metadataQuiet
+  have dispatch : DispatchAt real (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn)
+      (decode_adc_aarch64_instrs_integer_arithmetic_add_sub_carry Rd Rn 31#5 0#1 0#1 1#1) 6 := by
+    intro pc t see
+    exact NativeEntryBodyDispatch.Adc64ZRm.dispatch_at real pc Rd Rn t (by simpa using see)
+  have boundary := metadata_boundary_at real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn)
+    (decode_adc_aarch64_instrs_integer_arithmetic_add_sub_carry Rd Rn 31#5 0#1 0#1 1#1) enc0 sp currentGuard 6 (by decide) dispatch
+  have memory : fin.mem = (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).mem := by
+    exact congrArg (fun value => value.2.1) projection
+  have events : fin.events = (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).events := by
+    exact congrArg (fun value => value.2.2) projection
+  have eventFrame : fin.events = fetched.events := by
+    simpa only [actionState_events, post.events] using events
+  refine ⟨sp, fin, hook, metadataInput,
+    (actionState_mem (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).trans post.mem,
+    (actionState_events (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).trans post.events,
+    ?_, projection, frame, finalQuiet,
+    memory.trans ((actionState_mem (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6).trans post.mem), eventFrame⟩
+  calc
+    nativeTail real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 fetched =
+        afterSpecPmu real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 sp :=
+      spec_pmu_boundary real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 fetched sp hook
+    _ = nativeAtAction real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn)
+        (decode_adc_aarch64_instrs_integer_arithmetic_add_sub_carry Rd Rn 31#5 0#1 0#1 1#1) enc0
+        (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) := boundary
+    _ = nativeAfterAction real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) enc0 fin :=
+      action_boundary real source (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn)
+        (decode_adc_aarch64_instrs_integer_arithmetic_add_sub_carry Rd Rn 31#5 0#1 0#1 1#1) enc0
+        (actionState (NativeEntryBodyDispatch.Adc64ZRm.selected Rd Rn) sp 6) fin action
+
+#print axioms action_prefix
+end ArmBridge.CruxGenGuarded.EntryBodyAdc64ZRm

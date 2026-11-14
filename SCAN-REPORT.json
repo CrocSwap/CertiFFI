@@ -1,0 +1,68 @@
+{
+ "summary": {
+  "path": {},
+  "msgid": {
+   "comment": 6
+  },
+  "decision": {
+   "comment": 1
+  },
+  "owner": {
+   "comment": 6
+  },
+  "dnum": {
+   "string": 534,
+   "comment": 30
+  },
+  "agent": {
+   "comment": 10
+  },
+  "email": {},
+  "trust": {
+   "comment": 5
+  }
+ },
+ "comment_hits": 53,
+ "trust_code_hits": 0,
+ "files": {
+  "path": [],
+  "msgid": [
+   "ReleaseHeap/ReleaseProfile/GB10/Canonical.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/ModelRegs.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/Source.lean"
+  ],
+  "decision": [
+   "ReleaseHeap/ReleaseProfile/GB10/Canonical.lean"
+  ],
+  "owner": [
+   "ReleaseHeap/ReleaseProfile/GB10/Canonical.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/ModelRegs.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/Source.lean"
+  ],
+  "dnum": [
+   "ReleaseHeap/ReleaseProfile/GB10/Canonical.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/DomainWitness.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/FeatureSource.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/ManifestRows.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/ModelRegs.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/Producers.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/Source.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/SourceSpec.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/SpecWitness.lean"
+  ],
+  "agent": [
+   "ReleaseHeap/ReleaseProfile/GB10/Canonical.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/DomainWitness.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/ModelRegs.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/Source.lean",
+   "ReleaseHeap/ReleaseProfile/GB10/SourceSpec.lean"
+  ],
+  "email": [],
+  "trust": [
+   "Provider/Bridge/CruxGenGuarded/ReleaseHeadline.lean",
+   "Provider/MemReloc/Image.lean",
+   "Provider/TranslateValue/Poly.lean",
+   "ReleaseSecp/ArmCertPipe/RetExit.lean"
+  ]
+ }
+}

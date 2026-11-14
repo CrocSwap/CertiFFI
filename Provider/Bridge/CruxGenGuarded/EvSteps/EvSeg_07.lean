@@ -1,0 +1,275 @@
+import Bridge.CruxGenGuarded.ChainInvV4At
+import Bridge.CruxGenGuarded.EvSteps.EvBase
+import HeapV2StepCerts.MemStepsV4E_04
+import HeapV2StepCerts.StepsV2_02
+import HeapV2StepCerts.TailWStepsEC6
+import HeapV2StepCerts.TailWStepsEC7a
+import HeapV2StepCerts.TailWStepsEC7b
+import HeapV2StepCerts.ValBindDec
+import RtB6.RichZ
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open ArmCert.Translate ArmCert.Translate.Model ArmCertWalk
+namespace ArmBridge.CruxGenGuarded.EvSteps
+open ArmBridge.Draft ArmBridge.CruxGenGuarded ArmBridge.CruxGenGuarded.ChainInvV4 HeapV2StepCerts.E17General
+open ArmBridge.Boundary ArmBridge.CruxCore
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 2048
+set_option Elab.async false
+set_option profiler true
+set_option profiler.threshold 1000
+
+run_cmd do
+  IO.eprintln "CURRENT_DECL EvSteps.evSeg_07"
+  (← IO.getStderr).flush
+
+theorem evSeg_07 (real : Type) [Sail.SailReal real] {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat) (base : BitVec 64)
+    (pins : HeapV2E17.Pins) (entry : NativeState) (budget : Nat)
+    (dp : DeploymentPremises spec config rows mapping base pins entry budget) (hb : 357 ≤ budget) :
+    ∀ k, 210 ≤ k → k < 240 → EvStep real spec config rows mapping base pins entry budget k := by
+  intro k lo hi
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_210 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_211 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 211 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_211 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (212 + 1) = if true then HeapV2Compose.offsetOf 212 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 212 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 212 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_212 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 212 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_213 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_214 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 214 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_214 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (215 + 1) = if true then HeapV2Compose.offsetOf 215 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 215 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 215 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_215 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 215 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_216 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_217 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 217 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_217 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (218 + 1) = if true then HeapV2Compose.offsetOf 218 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 218 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 218 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_218 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 218 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_219 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_220 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 220 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_220 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (221 + 1) = if true then HeapV2Compose.offsetOf 221 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 221 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 221 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_221 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 221 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_222 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_223 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 223 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_223 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (224 + 1) = if true then HeapV2Compose.offsetOf 224 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 224 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 224 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_224 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 224 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_225 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_226 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 226 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_226 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (227 + 1) = if true then HeapV2Compose.offsetOf 227 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 227 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 227 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_227 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 227 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_228 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_229 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 229 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_229 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (230 + 1) = if true then HeapV2Compose.offsetOf 230 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 230 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 230 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_230 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 230 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_231 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_232 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 232 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_232 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (233 + 1) = if true then HeapV2Compose.offsetOf 233 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 233 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 233 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_233 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 233 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_234 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_235 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 235 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_235 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (236 + 1) = if true then HeapV2Compose.offsetOf 236 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 236 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 236 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_236 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 236 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    obtain ⟨fin, run, _, r⟩ := HeapV2StepCerts.memStep4E_237 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+      dp.dataStatic dp.pinAligned dp.codeD dp.nodup (by omega) dp.page x inv.v3
+    exact ⟨fin, run, r.2.2.2.2.2.2.1⟩
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    let c := HeapV2StepCerts.cert2_238 real spec config rows mapping base budget pins (rowsFootprint spec.imageRows).byte dp.static
+    exact ev_class real spec config rows mapping _ HeapV2StepCerts.codeScope (HeapV2.image base) base dp.static.separated base
+      HeapV2Compose.offsetOf budget pins 238 (by omega) dp.page (by decide +kernel) dp.nodup c.word c.writes c.see c.next
+      (fun y _ => HeapV2StepCerts.TailWE.tailW_238 real y) (fun y h => c.placedNext y h.v2) (fun y h => c.fetch y h.v2) x inv.v3
+  rcases Nat.eq_or_lt_of_le lo with rfl | lo
+  · intro x inv
+    have land : HeapV2Compose.offsetOf (239 + 1) = if true then HeapV2Compose.offsetOf 239 + sign_extend (524286#19 ++ 0#2) 64
+        else HeapV2Compose.offsetOf 239 + 4#64 := by decide +kernel
+    obtain ⟨fin, run, _, r⟩ := RtB6.RichZ.rich_branch_bcond_atE real spec config rows mapping _ HeapV2StepCerts.codeScope
+      (HeapV2.image base) base dp.static.separated base HeapV2Compose.offsetOf budget pins 239 (by omega) (by decide) dp.page
+      (by decide +kernel) (by decide +kernel) (by decide +kernel) dp.nodup 1#4 524286#19 true (by decide) x inv.v3
+      (HeapV2StepCerts.ValBind.dec_239 dp.np inv.v3.regBind inv.valBind)
+      (fun y iy => by rw [iy.v2.v1.pc, BitVec.add_assoc]; exact low_of _ (by decide +kernel) dp.low)
+      (fun y iy => by rw [iy.v2.v1.pc, land]; simp [BitVec.add_assoc])
+      (fun y iy => HeapV2StepCerts.MemNext.memFetch spec config rows mapping base budget 239 pins (rowsFootprint spec.imageRows).byte dp.static 0x188
+        0x54ffffc1 (by decide +kernel) (by decide +kernel) _ (by decide) y iy.v2)
+    exact ⟨fin, run, r.2.2.2.2.1⟩
+  exact absurd hi (by omega)
+
+#print axioms evSeg_07
+end ArmBridge.CruxGenGuarded.EvSteps

@@ -1,0 +1,101 @@
+-- Memory (, d199/d200): the generic MEMORY route over ArmCertPipe.ChainInvG. From ChainInvG at k, a
+-- program-generic memory tail (MemTailGAt over GCtx X, payload Pay), the step's FetchObligations and the program's
+-- transfer of X / Pay across the no-update fetch: the step runs, the register effect Holds us, writes stay in D
+-- (separated from the tables), and the class payload holds from x. Per-class VHolds / MemVHolds follow from
+-- StepVCore.vholds_of_holds and the ArmCertR14 / ArmCertValueMem value theorems.
+import HeapV2StepCerts.AccShape
+import HeapV2StepCerts.ActionTransport
+import HeapV2StepCerts.BodyHolds
+import HeapV2StepCerts.BodyMemD
+import HeapV2StepCerts.BranchFrame
+import HeapV2StepCerts.C3Byte
+import HeapV2StepCerts.C3Core
+import HeapV2StepCerts.C3Pair
+import HeapV2StepCerts.Carry
+import HeapV2StepCerts.CodeScope
+import HeapV2StepCerts.DataBytes
+import HeapV2StepCerts.FetchFrames
+import HeapV2StepCerts.FlagRoots
+import HeapV2StepCerts.FlagTails
+import HeapV2StepCerts.MemConfigFrame
+import HeapV2StepCerts.MemHolds
+import HeapV2StepCerts.MemNextV3
+import HeapV2StepCerts.MemRunD
+import HeapV2StepCerts.MemStepV3
+import HeapV2StepCerts.MemSteps
+import HeapV2StepCerts.MemStepsV3
+import HeapV2StepCerts.MemStepsV3_00
+import HeapV2StepCerts.MemStepsV3_01
+import HeapV2StepCerts.MemStepsV3_02
+import HeapV2StepCerts.MemStepsV3_03
+import HeapV2StepCerts.MemStepsV3_04
+import HeapV2StepCerts.MemStepsV3_05
+import HeapV2StepCerts.MemTailD
+import HeapV2StepCerts.MemTailLdrb
+import HeapV2StepCerts.MemTailPair
+import HeapV2StepCerts.MemTailStrb
+import HeapV2StepCerts.RawFetch
+import HeapV2StepCerts.RegBind
+import HeapV2StepCerts.RegBindCore
+import HeapV2StepCerts.RegBindData
+import HeapV2StepCerts.RegRootsB
+import HeapV2StepCerts.RegVal
+import HeapV2StepCerts.Straight
+import HeapV2StepCerts.StraightV2
+import HeapV2StepCerts.TailW
+import HeapV2StepCerts.ValBind
+import HeapV2StepCerts.ValBindCore
+import HeapV2StepCerts.ValBindData
+import HeapV2StepCerts.ValueTailDef
+import ArmCertPipe.ChainInvG
+import ArmCertMemPipe.EntryMemG
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open ArmCert.Translate ArmCert.Translate.Model
+open ArmCertWalk
+open ArmBridge.Boundary ArmBridge.Draft ArmBridge.CruxCore
+open ArmBridge.CruxGenGuarded.EntryActualFetch ArmBridge.CruxGenGuarded.EntryClassNext
+open ArmCert.HookQuiet.V0 (HookQuiet)
+namespace ArmCertMemPipe
+open ArmBridge.CruxGenGuarded ArmBridge.CruxGenGuarded.ChainInv ArmBridge.CruxGenGuarded.ChainInvV2
+open ArmBridge.CruxGenGuarded.ChainInvV3 HeapV2StepCerts
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+set_option maxRecDepth 4096
+
+theorem mem_routeG (real : Type) [Sail.SailReal real]
+    {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (m : ArmCert.Premises.TranslationAgreesV1.ConsumerMap)
+    (scope : Nat → Prop) (image : MemReloc.Image) (loadBase : MemReloc.Word)
+    (separated : ImageTableSeparated scope loadBase mapping (rowsFootprint spec.imageRows).byte)
+    (base : BitVec 64) (offset : Nat → BitVec 64) (budget : Nat) (extra : Nat → NativeState → Prop) (k : Nat)
+    (room : k < budget) (page : base.toNat % 4096 = 0) (aligned : (offset k).toNat % 4 = 0)
+    (w : BitVec 32) (writes : NativeEntry.Effects.Writes) (K : Int) (us : List (RegBind.Reg × RegBind.Upd))
+    (next : NativeState → BitVec 64) (X : NativeState → Prop) (D : Nat → Prop)
+    (Pay : NativeState → NativeState → Prop)
+    (codeD : ImageTableSeparated scope loadBase mapping D)
+    (x : NativeState) (inv : ArmCertPipe.ChainInvG spec config rows mapping m scope image loadBase base offset budget extra k x)
+    (xferX : ∀ f : NativeState, f.regs.gpr = x.regs.gpr → f.regs.SP_EL0 = x.regs.SP_EL0 → f.mem = x.mem → X f)
+    (xferPay : ∀ f g : NativeState, f.regs.gpr = x.regs.gpr → f.regs.SP_EL0 = x.regs.SP_EL0 → f.mem = x.mem →
+      Flags.nzcv f.regs = Flags.nzcv x.regs → Pay f g → Pay x g)
+    (tail : MemTailGAt real spec config rows (GCtx spec config rows mapping m X) D w writes K x (next x) us Pay)
+    (nextPlaced : next x = base + offset (k + 1))
+    (obligations : FetchObligations spec config rows mapping w x) :
+    ∃ fin, modelStep real x = .ok () fin ∧ RegBind.Holds us x fin ∧
+      (∃ written : Nat → Prop, WritesOnly written (fun a => x.mem[a]?) (fun a => fin.mem[a]?) ∧
+        Separated (rowsFootprint spec.imageRows).byte written ∧ (∀ a, written a → D a)) ∧
+      Pay x fin := by
+  have hq : HookQuiet ((budget - (k + 1)) + 1) x := by
+    have e : budget - (k + 1) + 1 = budget - k := by omega
+    rw [e]; exact inv.v2.v1.quiet
+  obtain ⟨fin, run, _, _, _, _, _, _, _, _, _, _, holds, wr, pay, _, _⟩ :=
+    entry_mem_nextG real spec config rows mapping w writes K x inv.v2.v1.pins (next x) (offset (k + 1)) us m X D Pay
+      tail inv.v2.v1.gic inv.v2.v1.features inv.v2.v1.debug (budget - (k + 1)) hq base (offset k) inv.v2.v1.pc page
+      aligned nextPlaced inv.v2.v1.current inv.v2.closed scope image loadBase inv.v2.placed separated codeD
+      inv.v2.branch inv.raw inv.noUpd xferX xferPay inv.post2 inv.mode inv.debug inv.feat inv.dcache
+      obligations.queryOf obligations.rawOf obligations.vaOf obligations.mmio obligations.present
+      obligations.perAcc obligations.code
+  exact ⟨fin, run, holds, wr, pay⟩
+
+#print axioms mem_routeG
+end ArmCertMemPipe

@@ -1,0 +1,118 @@
+import ArmCertWalk.NativeWalkTotalFields
+import ArmCertWalk.PathLeafObservation
+import ArmCertWalk.LeafAfterWalkTotal
+import ArmCertTranslateModel.NativeWalkBinding
+
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions
+open ArmCert.Translate ArmCert.Translate.Model
+set_option autoImplicit false
+set_option maxHeartbeats 150000
+set_option maxRecDepth 512
+
+namespace ArmCertWalk
+
+abbrev TranslateVars := TranslateUpdateSource.Vars
+
+def translateStop : TranslateVars → Bool
+  | (_, _, descriptor, _, memory, updated, _, _, _) => (updated == descriptor) || (memory == updated)
+def translateCurrent : TranslateVars → TTWState | (_, _, _, _, _, _, _, _, next) => next
+def translateFault : TranslateVars → FaultRecord | (_, _, _, fault, _, _, _, _, _) => fault
+def translateSlot : TranslateVars → AddressDescriptor | (_, slot, _, _, _, _, _, _, _) => slot
+
+/-- One actual translation-loop body: complete native walk, SAME-result
+permission/alignment checks, GP bookkeeping, conditional leaf AF/dirty swap.
+Current images are preserved through BOTH table and leaf writes, including
+aliases. The stop condition is derived from the actual swap result. -/
+theorem native_translate_body_total {domain : QueryDomain} (spec : TopologyImageSpec domain)
+    (config : AttributeConfig) (rows : List PermissionRow) (mapping : BitVec 64 → Option Nat)
+    (query : AccessQuery) (member : domain query) (aligned : Bool)
+    (leafLevel logical : Nat) (physical : FullAddress) (view : S1DescriptorPIE.View 64)
+    (path : S1LogicalReference.Path (logicalObserve spec.logicalRows)
+      (effectiveBits spec.physicalConfig).toNat query.va spec.layout.start
+      (S1LogicalReference.rootBits spec.layout.start spec.layout.inputBits) spec.layout.root
+      (.leaf leafLevel logical physical view))
+    (binding : PathPermissionUse spec config rows query path ⟨0#2, false, false⟩)
+    (oldAccess : AccessDescriptor) (oldSlot : AddressDescriptor) (oldDescriptor : BitVec 128)
+    (fault : FaultRecord) (oldMemory oldNew : BitVec 128) (a64 s2 : Bool) (oldNext : TTWState) (initial : State)
+    (format : WalkFormat spec.params spec.physicalConfig spec.controls)
+    (callees : WalkCalleesAt spec.params spec.physicalConfig spec.controls config initial)
+    (images : CurrentImagesAt spec config rows initial)
+    (layout : CurrentLayoutAt spec.layout spec.params query.va initial.regs)
+    (disch : spec.params.disch = 0#1) (accessEL : query.request.raw.el = EL0)
+    (ss : query.request.raw.ss = .SS_NonSecure) (noFault : fault.statuscode = .Fault_None)
+    (cache : initial.regs.bank_Bool .__tlb_enabled = false)
+    (epd : currentWalkEPD initial.regs query.va = 0#1)
+    (map : LeafMapAt mapping spec.physicalConfig initial.regs query leafLevel view) :
+    ∃ (out : TranslateVars) (other : State) (operations : List TableUpdate),
+      S1WalkSource.translate.body0 .Regime_EL20 query.va aligned query.request.raw spec.params
+        (oldAccess, oldSlot, oldDescriptor, fault, oldMemory, oldNew, a64, s2, oldNext) initial =
+        .ok (.ok out) other ∧ translateStop out = true ∧
+      (translateFault out).statuscode = .Fault_None ∧ (translateCurrent out).level = (leafLevel : Int) ∧
+      (translateSlot out).paddress = physical ∧ (translateSlot out).vaddress = query.va ∧
+      (translateCurrent out).memattrs.memtype = .MemType_Normal ∧
+      mapping query.va = some (S1LogicalReference.outputAddress query.va leafLevel
+        (translateCurrent out).baseaddress ((translateCurrent out).contiguous == 1#1)).address.toNat ∧
+      other.regs = fetchGuardRegs query.request.raw (translateCurrent out) initial.regs ∧
+      StoreHistory spec.params (rowsFootprint spec.imageRows) initial.mem operations other.mem ∧
+      CurrentImagesAt spec config rows other := by
+  obtain ⟨result, walked, walkCall, clean⟩ :=
+    native_walk_fields_total spec config query member leafLevel logical physical view path binding.used
+      fault initial format callees images.topology images.attributes layout disch ss noFault cache epd map.admissible
+  obtain ⟨steps, walkOut, words, prior, tableOps, positive, bounded, resultEq, annotation,
+    endpoint, walkRegs, tableHistory, addressPA, addressVA⟩ := clean
+  rw [resultEq] at walkCall
+  have walkedImages := images.store_history tableHistory walkRegs format.endian
+    callees.permissions.ha callees.permissions.hd callees.permissions.pie
+  have admission := binding.endpoint_admission initial walked walkRegs walkedImages annotation endpoint
+  have currentMap : LeafMapAt mapping spec.physicalConfig walked.regs query leafLevel view := by
+    rw [walkRegs]; exact map
+  have output := walk_endpoint_output_inputs spec config mapping walked query leafLevel physical view prior walkOut
+    (outputOverlayEnabled initial.regs) endpoint walkedImages.topology binding.used currentMap
+  obtain ⟨heldCurrent, raw, heldLevel, heldDisCH, priorEq, rawView, bytes, descriptorEq,
+    slotEq, stop, faultNone, meaning⟩ := endpoint
+  have sourceBytes : S1ByteMemory.DescAt walked.mem (walkAddress walkOut).paddress.address.toNat
+      (S2Endian.encode spec.params.ee (walkDescriptor walkOut)) := by
+    rw [addressPA, descriptorEq]
+    simpa [format.endian, S2Endian.encode] using bytes
+  have observed := path_leaf_observed path leafLevel logical physical view rfl
+  have covered : physical.address.toNat ∈ (rowsFootprint spec.imageRows).slots :=
+    rows_covered spec.imageRows _ true view binding.used
+  have available := spec.available logical physical view observed
+  obtain ⟨accessOut, other, afterCall, registers, leafHistory, leafEvents⟩ :=
+    leaf_after_walk_total spec.params (rowsFootprint spec.imageRows) query.va aligned query.request.raw oldAccess
+      (walkAddress walkOut) (walkDescriptor walkOut) (walkFault walkOut) oldMemory oldNew a64 s2
+      (walkCurrent walkOut) walked format.d128 faultNone accessEL ss admission.2.1 admission.1
+      (by rw [walkRegs]; exact callees.el) (by rw [walkRegs]; exact callees.noRME)
+      (by rw [walkRegs]; exact callees.aarch64) (by rw [walkRegs]; exact callees.el3A64)
+      (by rw [walkRegs]; exact callees.noEL3A32)
+      (by rw [addressPA]; exact available.2.2) (by rw [addressPA]; exact covered)
+      (by rw [addressPA]; exact available.2.1) sourceBytes
+  let out : TranslateVars := (accessOut, walkAddress walkOut, (walkDescriptor walkOut).setWidth 128,
+    walkFault walkOut, leafSwapMem spec.params query.request.raw (walkDescriptor walkOut) oldMemory,
+    (leafUpdateWord spec.params query.request.raw (walkDescriptor walkOut)).setWidth 128, a64, s2, walkCurrent walkOut)
+  let guarded := fetchGuardState query.request.raw (walkCurrent walkOut) walked
+  have guardedImages : CurrentImagesAt spec config rows guarded := by
+    dsimp only [guarded, fetchGuardState, fetchGuardRegs]
+    split
+    · exact walkedImages.guarded_page _
+    · exact walkedImages
+  have afterImages : CurrentImagesAt spec config rows other :=
+    guardedImages.store_history leafHistory registers format.endian
+      callees.permissions.ha callees.permissions.hd callees.permissions.pie
+  refine ⟨out, other, tableOps ++ leafOperations spec.params query.request.raw
+    (walkAddress walkOut).paddress.address.toNat (walkDescriptor walkOut), ?_, ?_, faultNone,
+    meaning.level_eq, addressPA, addressVA, admission.2.1, output.1, ?_, tableHistory.append leafHistory, afterImages⟩
+  · rw [TranslateUpdateSource.source_eq]
+    have d128False : ((0#1 : BitVec 1) == 1#1) = false := rfl
+    have wide := source_descriptor_128 oldDescriptor (walkDescriptor walkOut)
+    unfold sourceDescriptor128 at wide
+    simpa [TranslateUpdateSource.body, format.d128, d128False, walkCall, wide, afterCall, out,
+      Bind.bind, Pure.pure, Functor.map, ExceptT.bind, ExceptT.bindCont, ExceptT.pure,
+      ExceptT.mk, ExceptT.lift, EStateM.bind, EStateM.map, EStateM.pure,
+      liftM, MonadLiftT.monadLift, MonadLift.monadLift]
+  · exact leaf_update_stop spec.params query.request.raw (walkDescriptor walkOut) oldMemory
+  · change other.regs = fetchGuardRegs query.request.raw (walkCurrent walkOut) initial.regs
+    rw [registers, walkRegs]
+
+#print axioms native_translate_body_total
+end ArmCertWalk

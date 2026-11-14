@@ -1,0 +1,62 @@
+Definition (CT0, security grades v2.1). A program is *constant time (CT0)* when, for two runs that agree on everything
+except the declared secret inputs, the full runs have equal length and equal model event records, and every event has
+a record. The records are the frozen D156 records (`ArmCertCTOrdered.OrderedEventV2.record`):
+- explicit data accesses: read or write, virtual address, size;
+- instruction fetches and translation-table-walk reads and writes: physical address, size;
+- translation start/end markers;
+- ISB barriers.
+No data values are recorded. Two runs are compared with `PhasedCT.TimingRec`. CT0 is a property of the Arm architecture
+model; it says nothing about caches, TLBs or prefetchers.
+
+Definition (CT1, security grades v2.1). CT0, plus: every body step runs with PSTATE.DIT = 1 and is a DIT-listed
+instruction or public control; no SVE/SME instruction is on the path; and no step outside the DIT window has a secret
+operand. Hardware timing then follows only under Arm's DIT timing contract (claim condition P3), which is neither proved
+nor measured. Load/store data latency is excluded unless the instruction is DIT-listed; addresses are covered by CT0.
+
+Claim (per card, all 32 secp DIT shims c00–c31).
+*Shared by the two runs (public):* one admitted source completion `rho` (with model semantics `sem` and oracle choice `o`),
+and the deployment tables `t` (hence the logical rows and layout the translation-walk records read). Also shared: the
+permission rows, VA→PA mapping, load base, and slot pins.
+*Per run (may differ):* the caller — two admitted CT callers `callers.first/second` of `rho` with the same common view
+(`AdmissibleCTCallers`); its configuration `cfg_i` and entry agreement `AgreesAt cfg_i e_i.regs`. Also per run: the derived raw
+tables `canonicalRaw sem rho caller_i (dataOf e_i.regs) o t` (params / controls / physical config may differ), source
+attributes and source control catalogue; and the card's sealed C1 residual `SecpResidual_cNN … caller_i e_i` (timers, topology,
+caller contract, reduced inputs — exactly the secp C1 root's premises).
+*Relation between the entries:* e1 and e2 agree on every general-purpose register x0–x30, except x1 on the cmul cards
+c28/c29, where x1 is the scalar c (data). Nothing else relates them.
+
+Then for the card's whole shim run (N = L+12 steps), ending at the shim's return to the caller:
+1. CT0 (model). The two runs are TimingRec-equal under the D156 records. Every step of both runs appends only
+   recorded events (`ArmCertCTOrdered.OrderedEventV2.Covered`).
+2. P1 (DIT). Both runs execute with PSTATE.DIT = 1 at every state j ∈ [5, L+10]. The shim sets DIT itself, so no
+   caller DIT premise is needed. This window contains the whole body 7..L+7.
+3. CT1 (`secpCT1RetFromSource_cNN`). Every instruction word executed in the body is bound to the reviewed image word at
+   its PC (fetched-word binding), and each such word is a DIT-listed instruction or public control; no SVE/SME
+   instruction is on the path; and no step outside [5, L+10] has a secret operand.
+4. Timing (claim condition P3). On hardware implementing Arm's DIT contract, with DIT = 1 the timing of every
+   DIT-listed instruction is independent of its data operands. P3 is Arm's contract; it is not proved in Lean. Under P3,
+   (1)–(3) give data-independent timing for the whole shim run.
+5. Residue at return (CT2.R0): FAIL. The registers below are not proved equal across the two runs; their values
+   depend on secret inputs, and clearing them is the caller's responsibility:
+   Add c00–c04 x3–x8; Sub c05–c09 x3, x5–x8; Neg c10–c11 x2–x7; Double c12–c13 x2–x8;
+   Mul c14–c18 x1–x8, x10–x15, x17; MulAlt c19–c23 x3–x8, x10–x16; Sqr c24–c25 x2–x8, x10–x16; SqrAlt c26–c27
+   x2–x8, x10–x14; Cmul c28–c29 x3–x8, x10; Mod4 c30–c31 x2–x7..
+   On c28/c29, x1 is returned unchanged (the caller's own secret scalar). x9 holds the caller's DIT image (the full MRS DIT
+   value, per run): it is neither public nor a finding. The 16-byte shim save slot (x9, x30) is caller-owned. NZCV, written memory and SIMD/SVE state are not graded.
+
+The secret is therefore all memory contents (including the operand buffers and the output buffer's prior contents), and
+cmul's scalar. Memory and every non-GPR state component are unconstrained beyond each run's own source premises (AgreesAt + C1 residual).
+
+Scope.
+- CT0 is equality of model event records.
+- Single core, no concurrent writer.
+- Speculative-execution side channels, including straight-line speculation (SLS), are not addressed: the image is not built with SLS hardening, and no speculation property is claimed. All CT grades are about the architectural (Sail) semantics.
+- Pointers satisfy the shim caller contract (the residual's caller-contract field, CallerContract card:secp-caller-lower-va-objects).
+- The caller's return address (x30 at shim entry) is outside the shim's code (caller contract).
+- The load base is below 2^54 (a deployment obligation, discharged from the TCR_EL2.T0SZ configuration rows).
+
+Assumptions. The theorems assume the memory system returns status OK for the run's tag reads (PhysMemTagRead, Sail choice site 1354), an unattested hardware obligation, and that the deployed image and mappings satisfy the manifest's loader-image obligations (certiffi-secp256k1.elf loaded as reviewed), attested only at deployment. Generic-timer state is per-entry data and the timers are assumed quiet (GB10.TimersQuiet).
+
+Non-vacuity. For card c00, a pair of admissible runs with different secrets is exhibited (`CT1Witness.SecpC00.secp_c00_ct0ret_witness`, statement sha256 5262265af87786db2bd0253a13c3bef9e37befbd3ae13cbfa145a5864972d99e): the two runs differ in x1 limb 0 (operand byte at PA 0x80601000: 0 vs 1), with every premise proved over the release world, and the CT0/CT0-DIT conclusion holds for that pair. The same pair is exhibited for CT1 (item 3) on c00 (`CT1Witness.SecpC00.secp_c00_ct1ret_witness`, statement sha256 1e5e90e30c44805af0e34d9f3cdce143e6758b760c224db6ef8221cd3fbcd404). For CT0/CT0-DIT and CT1 on cards c01–c31, the only proved instance of the pair premises is two identical runs (e2 := e1, callers.first = callers.second; secp's positive C2): the pair premises constrain the secret operands only through each run's own caller contract (e.g. reduced inputs), and they are not shown jointly satisfiable for distinct secrets. Here 'statement sha256' is the SHA-256 of the witness theorem's statement as printed (pp.all) by the release gate and pinned in the release policy.
+
+Scope of this release: the 32 secp DIT shims c00-c31 in certiffi-secp256k1.elf (sha256 d036c327...), at the reviewed addresses, on standard GB10 Linux, with no debugger, tracer or hardware profiler attached to the process, for every admissible configuration completion (including MTE2 present or absent), under the premises in the ratified manifest 05604f17.

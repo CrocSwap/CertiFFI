@@ -1,0 +1,157 @@
+-- Memory (certiffi P1): ClassTailWAt = ClassTailVAt plus the step's value effect ValBind.VEff k fetched fin,
+-- and the W tails of the flag setters (SUBS / CMP / TST) and MOVZ #32 from FlagTails' exact-value roots.
+import HeapV2StepCerts.FlagTails
+import HeapV2StepCerts.RegVal
+import HeapV2StepCerts.ValBind
+open Sail Sail.ConcurrencyInterfaceV1 ArmFull ArmFull.Functions ArmFull.Register
+set_option autoImplicit false
+set_option maxHeartbeats 200000
+namespace HeapV2StepCerts.TailW
+open ArmBridge.Draft ArmBridge.CruxCore ArmBridge.CruxGen ArmBridge.CruxGenGuarded ArmBridge.CruxGenGuarded.EntryClassNext
+open ArmCert.HookQuiet.V0 (HookQuiet)
+open HeapV2StepCerts
+
+/-- ClassTailVAt plus the value effect of plan step k (VEff k fetched fin). -/
+def ClassTailWAt (real : Type) [Sail.SailReal real] (w : BitVec 32) (writes : NativeEntry.Effects.Writes)
+    (K : Int) (source : NativeState) (next : BitVec 64) (us : List (RegBind.Reg × RegBind.Upd)) (k : Nat) : Prop :=
+  ∀ (fetched : NativeState) (enc0 : __InstrEnc) (budget : Nat),
+    StepPins fetched → NativeEntryInput.Input source fetched → MetadataGuard fetched →
+    HookQuiet (budget + 1) fetched → fetched.regs.ShouldAdvanceIT = false →
+    fetched.regs.ShouldAdvanceSS = true →
+    ∃ sp a fin, (PMUEvent PMU_EVENT_INST_SPEC : SailM Unit) fetched = .ok () sp ∧
+      nativeTail real source w enc0 fetched = .ok () fin ∧
+      NativeEntryContract.Frame writes (actionState w sp K) a ∧
+      HookQuiet budget fin ∧ StepPins fin ∧ SysEq2 a.regs fin.regs ∧
+      fin.mem = fetched.mem ∧
+      fin.regs.bank_Option_InterruptID .__GIC_Pending = a.regs.bank_Option_InterruptID .__GIC_Pending ∧
+      fin.regs._PC = next ∧
+      ArmCertCT.CT2.NonProjRegsEq ArmBridge.CruxNonProj.bkHeap a.regs fin.regs ∧
+      RegBind.Holds us fetched fin ∧ ValBind.VEff k fetched fin
+
+variable {real : Type} [Sail.SailReal real] {w : BitVec 32} {writes : NativeEntry.Effects.Writes} {K : Int}
+  {source : NativeState} {next : BitVec 64} {us us' : List (RegBind.Reg × RegBind.Upd)} {k : Nat}
+
+theorem ClassTailWAt.tailV (h : ClassTailWAt real w writes K source next us k) :
+    RegVal.ClassTailVAt real w writes K source next us := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, _⟩ := h fetched enc0 budget pins input guard quiet it ss
+  exact ⟨sp, a, fin, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
+
+/-- Every step without a value effect: its ClassTailVAt is a ClassTailWAt. -/
+theorem ClassTailWAt.ofV (he : ValBind.effAt k = .none) (h : RegVal.ClassTailVAt real w writes K source next us) :
+    ClassTailWAt real w writes K source next us k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h fetched enc0 budget pins input guard quiet it ss
+  exact ⟨sp, a, fin, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, ValBind.veff_none he _ _⟩
+
+theorem ClassTailWAt.holds (e : us = us') (h : ClassTailWAt real w writes K source next us k) :
+    ClassTailWAt real w writes K source next us' k := e ▸ h
+
+theorem sw64 (imm12 : BitVec 12) : imm12.setWidth 64 = BitVec.ofNat 64 imm12.toNat := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+
+theorem Subsi64_tailW (source : NativeState) (Rd Rn : BitVec 5) (imm12 : BitVec 12) (rd : Rd.toNat < 31) (rn : Rn.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Subsi64.selected Rd Rn imm12) 31 12 == 879088#20) = false)
+    (k : Nat) (he : ValBind.effAt k = .subs (RegBind.rk Rd) (RegBind.rk Rn) imm12.toNat) :
+    ClassTailWAt real (NativeEntryBodyDispatch.Subsi64.selected Rd Rn imm12) NativeEntryBodyFlag.Subsi64.writes 21 source
+      (source.regs._PC + 4#64) [(.x (RegBind.rk Rd), .drop)] k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, hook, _, tail, frame, q, p, sys, _, output, mem, _, gic, _, pc, np, hg, hs, hz, hc⟩ :=
+    FlagV.Subsi64.native_tailV real source fetched enc0 Rd Rn imm12 rd rn noEret pins input guard budget quiet it ss
+  have post := entry_spec_post fetched sp (budget + 1) quiet hook
+  rw [ActionTransport.gpr post.frame] at hg hz hc
+  rw [ActionTransport.sp0 post.frame] at hs
+  refine ⟨sp, a, fin, hook, tail, frame, q, p, sys, mem, gic, pc, np,
+    RegBind.holds_drop1 _ fin (RegBind.rk Rd) _ (by rw [output.gpr]; exact hg) (by rw [output.sp]; exact hs), ?_⟩
+  unfold ValBind.VEff; rw [he]
+  refine ⟨?_, ?_, ?_⟩
+  · show fin.regs.gpr[(RegBind.rk Rd).val] = fetched.regs.gpr[(RegBind.rk Rn).val] - _
+    rw [output.gpr, hg, ← sw64]
+    simp [RegBind.rk]
+  · show fin.regs.PSTATE.Z = 1#1 ↔ _
+    rw [output.zf]; exact hz
+  · show fin.regs.PSTATE.C = 1#1 ↔ _
+    rw [output.c]; exact hc
+
+theorem Subsi64ZRd_tailW (source : NativeState) (Rn : BitVec 5) (imm12 : BitVec 12) (rn : Rn.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Subsi64ZRd.selected Rn imm12) 31 12 == 879088#20) = false)
+    (k : Nat) (he : ValBind.effAt k = .cmp (RegBind.rk Rn) imm12.toNat) :
+    ClassTailWAt real (NativeEntryBodyDispatch.Subsi64ZRd.selected Rn imm12) NativeEntryBodyFlag.Subsi64ZRd.writes 21 source
+      (source.regs._PC + 4#64) [] k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, hook, _, tail, frame, q, p, sys, _, output, mem, _, gic, _, pc, np, hg, hs, hz, hc⟩ :=
+    FlagV.Subsi64ZRd.native_tailV real source fetched enc0 Rn imm12 rn noEret pins input guard budget quiet it ss
+  have post := entry_spec_post fetched sp (budget + 1) quiet hook
+  rw [ActionTransport.gpr post.frame] at hg hz hc
+  rw [ActionTransport.sp0 post.frame] at hs
+  refine ⟨sp, a, fin, hook, tail, frame, q, p, sys, mem, gic, pc, np,
+    RegBind.holds_nil _ fin (by rw [output.gpr]; exact hg) (by rw [output.sp]; exact hs), ?_⟩
+  unfold ValBind.VEff; rw [he]
+  refine ⟨?_, ?_⟩
+  · show fin.regs.PSTATE.Z = 1#1 ↔ _
+    rw [output.zf]; exact hz
+  · show fin.regs.PSTATE.C = 1#1 ↔ _
+    rw [output.c]; exact hc
+
+theorem AndsImm0_2_tailW (source : NativeState) (Rn : BitVec 5) (rn : Rn.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.AndsImm0_2.selected Rn) 31 12 == 879088#20) = false)
+    (k : Nat) (he : ValBind.effAt k = .tst (RegBind.rk Rn)) :
+    ClassTailWAt real (NativeEntryBodyDispatch.AndsImm0_2.selected Rn) NativeEntryBodyFlag.AndsImm0_2.writes 41 source
+      (source.regs._PC + 4#64) [] k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, hook, _, tail, frame, q, p, sys, _, output, mem, _, gic, _, pc, np, hg, hs, hz⟩ :=
+    FlagV.AndsImm0_2.native_tailV real source fetched enc0 Rn rn noEret pins input guard budget quiet it ss
+  have post := entry_spec_post fetched sp (budget + 1) quiet hook
+  rw [ActionTransport.gpr post.frame] at hg hz
+  rw [ActionTransport.sp0 post.frame] at hs
+  refine ⟨sp, a, fin, hook, tail, frame, q, p, sys, mem, gic, pc, np,
+    RegBind.holds_nil _ fin (by rw [output.gpr]; exact hg) (by rw [output.sp]; exact hs), ?_⟩
+  unfold ValBind.VEff; rw [he]
+  show fin.regs.PSTATE.Z = 1#1 ↔ _
+  rw [output.zf]; exact hz
+
+theorem Movz64z_tailW (source : NativeState) (Rd : BitVec 5) (rd : Rd.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Movz64z.selected Rd (32#16)) 31 12 == 879088#20) = false)
+    (profile : NativeEntryBodyAdapters.Movz64z.Profile source)
+    (k : Nat) (he : ValBind.effAt k = .movz32 (RegBind.rk Rd)) :
+    ClassTailWAt real (NativeEntryBodyDispatch.Movz64z.selected Rd (32#16)) NativeEntryBodyAdapters.Movz64z.writes 698 source
+      (source.regs._PC + 4#64) [(.x (RegBind.rk Rd), .drop)] k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, hook, _, tail, _, frame, q, p, sys, _, output, mem, _, gic, _, pc, np, hg, hs⟩ :=
+    FlagV.Movz64z.native_tailV real source fetched enc0 Rd rd profile noEret pins input guard budget quiet it ss
+  have post := entry_spec_post fetched sp (budget + 1) quiet hook
+  rw [ActionTransport.gpr post.frame] at hg
+  rw [ActionTransport.sp0 post.frame] at hs
+  refine ⟨sp, a, fin, hook, tail, frame, q, p, sys, mem, gic, pc, np,
+    RegBind.holds_drop1 _ fin (RegBind.rk Rd) _ (by rw [output.gpr]; exact hg) (by rw [output.sp]; exact hs), ?_⟩
+  unfold ValBind.VEff; rw [he]
+  show fin.regs.gpr[(RegBind.rk Rd).val] = _
+  rw [output.gpr, hg]
+  simp [RegBind.rk]
+
+theorem Movz64z0_tailW (source : NativeState) (Rd : BitVec 5) (rd : Rd.toNat < 31)
+    (noEret : (Sail.BitVec.extractLsb (NativeEntryBodyDispatch.Movz64z.selected Rd (0#16)) 31 12 == 879088#20) = false)
+    (profile : NativeEntryBodyAdapters.Movz64z.Profile source)
+    (k : Nat) (he : ValBind.effAt k = .movz0 (RegBind.rk Rd)) :
+    ClassTailWAt real (NativeEntryBodyDispatch.Movz64z.selected Rd (0#16)) NativeEntryBodyAdapters.Movz64z.writes 698 source
+      (source.regs._PC + 4#64) [(.x (RegBind.rk Rd), .drop)] k := by
+  intro fetched enc0 budget pins input guard quiet it ss
+  obtain ⟨sp, a, fin, hook, _, tail, _, frame, q, p, sys, _, output, mem, _, gic, _, pc, np, hg, hs⟩ :=
+    FlagV.Movz64z0.native_tailV real source fetched enc0 Rd rd profile noEret pins input guard budget quiet it ss
+  have post := entry_spec_post fetched sp (budget + 1) quiet hook
+  rw [ActionTransport.gpr post.frame] at hg
+  rw [ActionTransport.sp0 post.frame] at hs
+  refine ⟨sp, a, fin, hook, tail, frame, q, p, sys, mem, gic, pc, np,
+    RegBind.holds_drop1 _ fin (RegBind.rk Rd) _ (by rw [output.gpr]; exact hg) (by rw [output.sp]; exact hs), ?_⟩
+  unfold ValBind.VEff; rw [he]
+  show fin.regs.gpr[(RegBind.rk Rd).val] = _
+  rw [output.gpr, hg]
+  simp [RegBind.rk]
+
+#print axioms Subsi64_tailW
+#print axioms Subsi64ZRd_tailW
+#print axioms AndsImm0_2_tailW
+#print axioms Movz64z_tailW
+#print axioms Movz64z0_tailW
+end HeapV2StepCerts.TailW
